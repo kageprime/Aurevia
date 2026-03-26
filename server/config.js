@@ -18,6 +18,17 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
+function parseOrigins(value, fallback) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return fallback;
+  }
+
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 export const config = {
   port: parsePort(process.env.PORT ?? process.env.WHATSAPP_BACKEND_PORT, 8787),
   apiKey: process.env.WHATSAPP_BACKEND_API_KEY ?? '',
@@ -39,7 +50,8 @@ export const config = {
   usePostgres: parseBoolean(process.env.USE_POSTGRES, false),
   autoMigrate: parseBoolean(process.env.DB_AUTO_MIGRATE, true),
   databaseUrl: process.env.DATABASE_URL ?? '',
-  frontendOrigin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
+  frontendOrigins: parseOrigins(process.env.FRONTEND_ORIGIN, ['http://localhost:5173']),
+  frontendOrigin: parseOrigins(process.env.FRONTEND_ORIGIN, ['http://localhost:5173'])[0],
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID ?? '',
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN ?? '',
   twilioWhatsappFrom: process.env.TWILIO_WHATSAPP_FROM ?? '',

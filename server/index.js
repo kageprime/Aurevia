@@ -36,7 +36,15 @@ const authCookieOptions = {
   path: '/',
 };
 const CSRF_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-const allowedOrigin = new URL(config.frontendOrigin).origin;
+const allowedOrigins = new Set(
+  config.frontendOrigins.map((origin) => {
+    try {
+      return new URL(origin).origin;
+    } catch {
+      return origin;
+    }
+  })
+);
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -296,7 +304,14 @@ function verifyAdminMfa(input = {}) {
 
 app.use(
   cors({
-    origin: config.frontendOrigin,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-CSRF-Token'],
   })
