@@ -36,15 +36,35 @@ const authCookieOptions = {
   path: '/',
 };
 const CSRF_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-const allowedOrigins = new Set(
-  config.frontendOrigins.map((origin) => {
-    try {
-      return new URL(origin).origin;
-    } catch {
-      return origin;
-    }
-  })
-);
+
+function normalizeOrigin(origin) {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return origin;
+  }
+}
+
+function expandEquivalentOrigins(origin) {
+  const normalized = normalizeOrigin(origin);
+
+  try {
+    const url = new URL(normalized);
+    const port = url.port ? `:${url.port}` : '';
+    const bareHost = url.hostname.startsWith('www.') ? url.hostname.slice(4) : url.hostname;
+    const wwwHost = url.hostname.startsWith('www.') ? url.hostname : `www.${url.hostname}`;
+
+    return [
+      normalized,
+      `${url.protocol}//${bareHost}${port}`,
+      `${url.protocol}//${wwwHost}${port}`,
+    ];
+  } catch {
+    return [normalized];
+  }
+}
+
+const allowedOrigins = new Set(config.frontendOrigins.flatMap((origin) => expandEquivalentOrigins(origin)));
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -305,12 +325,14 @@ function verifyAdminMfa(input = {}) {
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
+      const normalizedOrigin = origin ? normalizeOrigin(origin) : '';
+
+      if (!normalizedOrigin || allowedOrigins.has(normalizedOrigin)) {
         callback(null, true);
         return;
       }
 
-      callback(new Error(`CORS blocked for origin: ${origin}`));
+      callback(new Error(`CORS blocked for origin: ${normalizedOrigin}`));
     },
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-CSRF-Token'],
