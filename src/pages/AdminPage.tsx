@@ -11,7 +11,7 @@ import {
   updateAdminProduct,
 } from '@/lib/productsApi';
 
-const backendUrl = (import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'http://localhost:8787';
+const backendUrl = (import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'https://api.aureviacare.com.ng';
 
 const quickStatuses = ['paid', 'payment_failed', 'processing', 'shipped', 'delivered'];
 

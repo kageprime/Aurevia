@@ -23,7 +23,7 @@ export function UserDashboardPage() {
       setIsLoading(true);
       try {
         const [profileResponse, userOrders] = await Promise.all([
-          fetchJson(`${(import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'http://localhost:8787'}/api/users/me`, {
+          fetchJson(`${(import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'https://api.aureviacare.com.ng'}/api/users/me`, {
             credentials: 'include',
           }),
           listUserOrders(),

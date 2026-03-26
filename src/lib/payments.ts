@@ -1,7 +1,7 @@
 import type { CartItem } from '@/types';
 
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER as string | undefined;
-const WHATSAPP_API_URL = (import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'http://localhost:8787';
+const WHATSAPP_API_URL = (import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'https://api.aureviacare.com.ng';
 
 export function isCheckoutConfigured() {
   return Boolean(WHATSAPP_NUMBER && WHATSAPP_NUMBER.trim().length > 0);

@@ -1,6 +1,6 @@
 import { fetchJson, readJsonResponse } from '@/lib/apiErrors';
 
-const WHATSAPP_API_URL = (import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'http://localhost:8787';
+const WHATSAPP_API_URL = (import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'https://api.aureviacare.com.ng';
 
 function endpoint(path: string) {
   return `${WHATSAPP_API_URL.replace(/\/$/, '')}${path}`;

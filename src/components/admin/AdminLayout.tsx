@@ -3,7 +3,7 @@ import { Outlet, NavLink, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth, useClerk } from '@clerk/clerk-react';
 import { fetchJson, readJsonResponse } from '@/lib/apiErrors';
 
-const backendUrl = (import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'http://localhost:8787';
+const backendUrl = (import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'https://api.aureviacare.com.ng';
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
   `block px-3 py-2 text-sm font-medium transition-colors ${

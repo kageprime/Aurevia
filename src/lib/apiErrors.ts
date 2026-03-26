@@ -1,5 +1,5 @@
 export const OFFLINE_ERROR_MESSAGE =
-  'Backend is offline. Start the server on http://localhost:8787 and try again.';
+  'Backend is offline. Check the API URL and try again.';
 
 export const SESSION_EXPIRED_ERROR_MESSAGE =
   'Your session expired. Sign in again to continue.';
