@@ -19,7 +19,7 @@ function parseBoolean(value, fallback = false) {
 }
 
 export const config = {
-  port: parsePort(process.env.WHATSAPP_BACKEND_PORT, 8787),
+  port: parsePort(process.env.PORT ?? process.env.WHATSAPP_BACKEND_PORT, 8787),
   apiKey: process.env.WHATSAPP_BACKEND_API_KEY ?? '',
   adminEmail: process.env.ADMIN_EMAIL ?? '',
   adminPassword: process.env.ADMIN_PASSWORD ?? '',

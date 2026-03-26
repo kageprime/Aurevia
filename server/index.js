@@ -181,7 +181,21 @@ function securityHeaders(_req, res, next) {
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
-  res.setHeader('Content-Security-Policy', "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'none'",
+      "base-uri 'none'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://api.clerk.com https://*.clerk.accounts.dev",
+      "frame-src 'self' https://*.clerk.accounts.dev",
+    ].join('; ')
+  );
   next();
 }
 
@@ -1242,7 +1256,7 @@ app.post('/api/webhooks/twilio/status', async (req, res) => {
 
 if (fs.existsSync(path.join(distDir, 'index.html'))) {
   app.use(express.static(distDir));
-  app.get('*', (req, res, next) => {
+  app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) {
       return next();
     }

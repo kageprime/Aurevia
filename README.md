@@ -15,12 +15,16 @@ npm run lint
 
 ## Deployment
 
+Use Node.js 20.19.0 or newer for install/build/deploy. The Clerk and Vite packages in this repo do not support Node 18.
+
 1. Set `VITE_CLERK_PUBLISHABLE_KEY` in the frontend environment.
-2. Set `CLERK_SECRET_KEY` and the backend variables listed in [server/README.md](server/README.md).
+2. Set `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and the backend variables listed in [server/README.md](server/README.md).
 3. Run `npm run build`.
 4. Start the app with `npm start`.
 
 When a built frontend exists in `dist/`, the backend serves it directly and falls back to `index.html` for client-side routes.
+
+For a backend-only Railway deployment, use `npm start` with the included [Procfile](Procfile) and point the frontend at the Railway service URL.
 
 ## Local development
 
