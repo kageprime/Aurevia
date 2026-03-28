@@ -598,6 +598,16 @@ const checkoutSchema = z.object({
   transferPhone: z.string().trim().optional(),
 });
 
+const cardCheckoutSchema = checkoutSchema.extend({
+  cardholderName: z.string().trim().min(2),
+  cardBrand: z.string().trim().min(2),
+  cardLast4: z.string().trim().length(4),
+  cardExpiry: z.string().trim().min(4),
+  billingEmail: z.string().trim().email().optional(),
+  billingPhone: z.string().trim().optional(),
+  paymentReference: z.string().trim().optional(),
+});
+
 const submitReceiptSchema = z.object({
   transferReference: z.string().trim().optional(),
   note: z.string().trim().optional(),
@@ -641,6 +651,33 @@ const featuredProductsSchema = z.object({
 
 function buildRateLimitKeys(prefix, values) {
   return values.map((value) => `${prefix}:${String(value).trim().toLowerCase() || 'unknown'}`);
+}
+
+async function ensureStoredClerkUser(clerkUser) {
+  const existing = await store.getUserById(clerkUser.id);
+  if (existing) {
+    return existing;
+  }
+
+  const now = new Date().toISOString();
+  try {
+    return await store.createUser({
+      id: clerkUser.id,
+      name: clerkUser.name || clerkUser.email || 'Aurevia shopper',
+      email: clerkUser.email || `${clerkUser.id}@clerk.local`,
+      passwordHash: `clerk:${clerkUser.id}`,
+      phone: '',
+      createdAt: now,
+      updatedAt: now,
+    });
+  } catch {
+    const emailUser = clerkUser.email ? await store.getUserByEmail(clerkUser.email) : null;
+    if (emailUser) {
+      return emailUser;
+    }
+
+    throw new Error('Could not create user profile.');
+  }
 }
 
 app.get('/health', (_req, res) => {
@@ -766,10 +803,7 @@ app.post('/api/users/refresh', (req, res) => {
 });
 
 app.get('/api/users/me', userAuthMiddleware, async (req, res) => {
-  const user = await store.getUserById(req.user.id);
-  if (!user) {
-    return res.status(404).json({ ok: false, error: 'User not found.' });
-  }
+  const user = await ensureStoredClerkUser(req.user);
 
   return res.json({
     ok: true,
@@ -798,6 +832,7 @@ app.post('/api/users/logout', (req, res) => {
 });
 
 app.get('/api/users/orders', userAuthMiddleware, async (req, res) => {
+  await ensureStoredClerkUser(req.user);
   const orders = await store.listOrdersByUser(req.user.id);
   return res.json({ ok: true, orders });
 });
@@ -919,7 +954,10 @@ app.get('/api/orders/:orderId', async (req, res) => {
   const hasApiKey = Boolean(config.apiKey) && req.headers['x-api-key'] === config.apiKey;
   const adminSession = getAdminSession(req);
   const userSession = getUserSession(req);
-  const isOwner = Boolean(userSession && order.userId === userSession.userId);
+  const clerkUser = await getClerkUserContext(req);
+  const isOwner = Boolean(
+    clerkUser?.id && order.userId === clerkUser.id
+  ) || Boolean(userSession && order.userId === userSession.userId);
 
   if (!hasApiKey && !adminSession && !isOwner) {
     return res.status(401).json({ ok: false, error: 'Unauthorized order access.' });
@@ -1081,7 +1119,8 @@ app.post('/api/checkout/whatsapp', userAuthMiddleware, async (req, res) => {
   }
 
   const { customerName, customerPhone, customerWhatsApp, items, transferPhone } = parsed.data;
-  const user = await store.getUserById(req.user.id);
+  const user = await ensureStoredClerkUser(req.user);
+  const now = new Date().toISOString();
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const orderId = `AUR-${Date.now()}`;
@@ -1096,6 +1135,8 @@ app.post('/api/checkout/whatsapp', userAuthMiddleware, async (req, res) => {
     items,
     subtotal,
     status: 'awaiting_payment',
+    paymentMethod: 'bank_transfer',
+    paymentStatus: 'awaiting_payment',
     receiptUrl: '',
     transferReference: '',
     transferNote: '',
@@ -1108,10 +1149,10 @@ app.post('/api/checkout/whatsapp', userAuthMiddleware, async (req, res) => {
     statusHistory: [
       {
         status: 'awaiting_payment',
-        at: new Date().toISOString(),
+        at: now,
       },
     ],
-    createdAt: new Date().toISOString(),
+    createdAt: now,
   });
 
   await store.pushEvent({
@@ -1143,6 +1184,63 @@ app.post('/api/checkout/whatsapp', userAuthMiddleware, async (req, res) => {
   });
 });
 
+app.post('/api/checkout/card', userAuthMiddleware, async (req, res) => {
+  const parsed = cardCheckoutSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ ok: false, error: parsed.error.flatten() });
+  }
+
+  const user = await ensureStoredClerkUser(req.user);
+  const now = new Date().toISOString();
+  const { items, cardholderName, cardBrand, cardLast4, cardExpiry, billingEmail, billingPhone, paymentReference } = parsed.data;
+
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const orderId = `AUR-${Date.now()}`;
+
+  const order = await store.createOrder({
+    id: orderId,
+    userId: req.user.id,
+    userEmail: billingEmail ?? req.user.email,
+    customerName: cardholderName || user?.name || '',
+    customerPhone: billingPhone ?? user?.phone ?? '',
+    customerWhatsApp: billingPhone ?? user?.phone ?? '',
+    items,
+    subtotal,
+    status: 'paid',
+    paymentMethod: 'card',
+    paymentStatus: 'captured',
+    paymentProvider: cardBrand,
+    paymentReference: paymentReference ?? `CARD-${orderId}`,
+    paymentLast4: cardLast4,
+    cardholderName,
+    cardExpiry,
+    receiptUrl: '',
+    transferReference: '',
+    transferNote: '',
+    bankDetails: null,
+    statusHistory: [
+      {
+        status: 'paid',
+        at: now,
+      },
+    ],
+    createdAt: now,
+  });
+
+  await store.pushEvent({
+    type: 'checkout.card_order_created',
+    createdAt: now,
+    orderId,
+  });
+
+  return res.status(201).json({
+    ok: true,
+    orderId,
+    subtotal,
+    order,
+  });
+});
+
 app.post('/api/orders/:orderId/receipt', upload.single('receipt'), async (req, res) => {
   const { orderId } = req.params;
   const order = await store.getOrder(orderId);
@@ -1154,7 +1252,10 @@ app.post('/api/orders/:orderId/receipt', upload.single('receipt'), async (req, r
   const hasApiKey = Boolean(config.apiKey) && req.headers['x-api-key'] === config.apiKey;
   const adminSession = getAdminSession(req);
   const userSession = getUserSession(req);
-  const isOwner = Boolean(userSession && order.userId === userSession.userId);
+  const clerkUser = await getClerkUserContext(req);
+  const isOwner = Boolean(
+    clerkUser?.id && order.userId === clerkUser.id
+  ) || Boolean(userSession && order.userId === userSession.userId);
 
   if (!hasApiKey && !adminSession && !isOwner) {
     return res.status(401).json({ ok: false, error: 'Unauthorized order access.' });

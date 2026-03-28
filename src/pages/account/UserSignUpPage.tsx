@@ -1,8 +1,8 @@
 import { Navigate, useLocation } from 'react-router-dom';
-import { SignIn, useAuth } from '@clerk/clerk-react';
+import { SignUp, useAuth } from '@clerk/clerk-react';
 import { AccountAuthShell } from '@/pages/account/AccountAuthShell';
 
-export function UserAuthPage() {
+export function UserSignUpPage() {
   const location = useLocation();
   const { isLoaded, isSignedIn } = useAuth();
 
@@ -16,30 +16,30 @@ export function UserAuthPage() {
     return (
       <section className="relative bg-[#F6F6F2] z-[70] py-24 px-6 lg:px-12 min-h-[70vh]">
         <div className="max-w-md mx-auto bg-white border border-[#0B0B0D]/10 p-6">
-          <p className="text-[#6E6E73]">Loading sign-in flow...</p>
+          <p className="text-[#6E6E73]">Loading sign-up flow...</p>
         </div>
       </section>
     );
-  };
+  }
 
   return (
     <AccountAuthShell
-      mode="login"
-      title="Sign in to continue your order"
-      description="Use your existing account to checkout, view receipts, and revisit your order history."
+      mode="signup"
+      title="Create your shopping profile"
+      description="Create an account to place orders, track receipts, and keep your checkout details in one place."
       highlights={[
-        'Resume checkout without starting over',
-        'See receipts and transfer updates in one place',
-        'Keep delivery details ready for the next order',
+        'Save your checkout details for faster ordering',
+        'Track transfer receipts and order updates',
+        'Keep every Aurevia purchase in one profile',
       ]}
-      actionText="Need an account? Create one"
-      actionHref="/account/register"
+      actionText="Already have an account? Sign in"
+      actionHref="/account/login"
       actionState={location.state}
     >
-      <SignIn
+      <SignUp
         routing="path"
-        path="/account/login"
-        signUpUrl="/account/register"
+        path="/account/register"
+        signInUrl="/account/login"
         forceRedirectUrl={redirectPath}
         fallbackRedirectUrl={redirectPath}
         appearance={{

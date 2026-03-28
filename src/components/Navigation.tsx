@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { ShoppingBag, Menu, X } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { CartItem } from '@/types';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAccentTheme } from '@/hooks/useAccentTheme';
@@ -14,6 +22,7 @@ interface NavigationProps {
   onRemoveFromCart: (id: string) => void;
   onUpdateQuantity: (id: string, quantity: number) => void;
   onCheckout: () => void;
+  onPayWithCard: () => void;
 }
 
 export function Navigation({ 
@@ -22,7 +31,8 @@ export function Navigation({
   total, 
   onRemoveFromCart, 
   onUpdateQuantity,
-  onCheckout 
+  onCheckout,
+  onPayWithCard 
 }: NavigationProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,20 +67,64 @@ export function Navigation({
     setCartOpen(false);
     onCheckout();
   };
+
+  const handleCardCheckoutClick = () => {
+    setCartOpen(false);
+    onPayWithCard();
+  };
+
+  const currentAccent = accents.find((option) => option.id === accent) ?? accents[0];
+
+  function AccentPicker({ compact = false }: { compact?: boolean }) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className={`flex items-center gap-2 border border-[#0B0B0D]/10 bg-white/70 hover:bg-white transition-colors ${compact ? 'px-3 py-2 text-sm' : 'px-3 py-2 text-xs'}`}
+            aria-label={`Accent color ${currentAccent.label}`}
+          >
+            <span
+              className="h-3 w-3 rounded-full border border-[#0B0B0D]/10"
+              style={{ backgroundColor: currentAccent.hex }}
+            />
+            <span className="font-medium text-[#0B0B0D]">{currentAccent.label}</span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48 rounded-none border-[#0B0B0D]/10 bg-[#F6F6F2]">
+          <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.28em] text-[#6E6E73]">
+            Accent
+          </DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={accent} onValueChange={setAccent}>
+            {accents.map((option) => (
+              <DropdownMenuRadioItem key={option.id} value={option.id} className="flex items-center gap-3">
+                <span
+                  className="h-3.5 w-3.5 rounded-full border border-[#0B0B0D]/10"
+                  style={{ backgroundColor: option.hex }}
+                />
+                <span>{option.label}</span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 z-[1101] bg-[#F6F6F2]/90 backdrop-blur-sm border-b border-[#0B0B0D]/10">
-        <div className="flex items-center justify-between px-6 lg:px-12 py-4">
+        <div className="flex items-center justify-between px-6 lg:px-12 py-[14px]">
           <button
             onClick={() => navigateTo('/')}
-            className="flex items-center gap-3"
+            className="flex items-center gap-2"
             aria-label="Go to homepage"
           >
             {!logoFailed ? (
               <img
                 src="/aurevia-logo.png"
                 alt="Aurevia logo"
-                className="h-24 w-auto"
+                className="h-[86px] w-auto"
                 onError={() => setLogoFailed(true)}
               />
             ) : (
@@ -87,77 +141,66 @@ export function Navigation({
             <button onClick={() => navigateTo('/shop', 'shop-skincare')} className="text-sm font-medium accent-hover-text">Care</button>
             <button onClick={() => navigateTo(accountPath)} className="text-sm font-medium accent-hover-text">Account</button>
 
-            <div className="hidden lg:flex items-center gap-2">
-              <span className="text-xs text-[#6E6E73]">Accent</span>
-              <div className="flex items-center gap-1">
-                {accents.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => setAccent(option.id)}
-                    className={`w-4 h-4 border border-[#0B0B0D]/20 ${accent === option.id ? 'ring-2 ring-[#0B0B0D]' : ''}`}
-                    style={{ backgroundColor: option.hex }}
-                    aria-label={`Use ${option.label} accent`}
-                    title={option.label}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <Sheet open={cartOpen} onOpenChange={setCartOpen}>
-              <SheetTrigger asChild>
-                <button onClick={() => setCartOpen(true)} className="flex items-center gap-2 text-sm font-medium accent-hover-text">
-                  <ShoppingBag className="w-5 h-5" />
-                  <span>({itemCount})</span>
-                </button>
-              </SheetTrigger>
-              <SheetContent className="inset-y-0 right-0 h-dvh max-h-dvh w-screen max-w-full sm:w-[420px] sm:max-w-[420px] bg-[#F6F6F2] overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle className="font-bold text-xl" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                    YOUR BAG
-                  </SheetTitle>
-                </SheetHeader>
-                <div className="mt-8 px-4 pb-6">
-                  {cartItems.length === 0 ? (
-                    <p className="text-[#6E6E73] text-center py-12">Your bag is empty</p>
-                  ) : (
-                    <div className="space-y-6">
-                      {cartItems.map((item) => (
-                        <div key={item.id} className="flex gap-4">
-                          <img src={item.image} alt={item.name} className="w-20 h-20 object-cover grayscale-warm" />
-                          <div className="flex-1">
-                            <h4 className="font-medium">{item.name}</h4>
-                            <p className="text-[#6E6E73] text-sm">${item.price}</p>
-                            <div className="flex items-center gap-3 mt-2">
-                              <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="w-6 h-6 border border-[#0B0B0D] flex items-center justify-center text-sm">-</button>
-                              <span className="text-sm">{item.quantity}</span>
-                              <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="w-6 h-6 border border-[#0B0B0D] flex items-center justify-center text-sm">+</button>
-                              <button onClick={() => onRemoveFromCart(item.id)} className="ml-auto text-[#6E6E73] accent-hover-text">
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      <div className="border-t border-[#0B0B0D]/10 pt-4">
-                        <div className="flex justify-between mb-4">
-                          <span className="font-medium">Subtotal</span>
-                          <span className="font-bold">${total.toFixed(2)}</span>
-                        </div>
-                        <Button onClick={handleCheckoutClick} className="w-full accent-bg hover:brightness-110 text-white rounded-none">
-                          Proceed to Bank Transfer
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </SheetContent>
-            </Sheet>
+            <AccentPicker />
+            <button onClick={() => setCartOpen(true)} className="flex items-center gap-2 text-sm font-medium accent-hover-text">
+              <ShoppingBag className="w-5 h-5" />
+              <span>({itemCount})</span>
+            </button>
           </div>
 
           <button className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
+
+        <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+          <SheetContent className="inset-y-0 right-0 h-dvh max-h-dvh w-screen max-w-full sm:w-[420px] sm:max-w-[420px] bg-[#F6F6F2] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="font-bold text-xl" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                YOUR BAG
+              </SheetTitle>
+            </SheetHeader>
+            <div className="mt-8 px-4 pb-6">
+              {cartItems.length === 0 ? (
+                <p className="text-[#6E6E73] text-center py-12">Your bag is empty</p>
+              ) : (
+                <div className="space-y-6">
+                  {cartItems.map((item) => (
+                    <div key={item.id} className="flex gap-4">
+                      <img src={item.image} alt={item.name} className="w-20 h-20 object-cover grayscale-warm" />
+                      <div className="flex-1">
+                        <h4 className="font-medium">{item.name}</h4>
+                        <p className="text-[#6E6E73] text-sm">${item.price}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="w-6 h-6 border border-[#0B0B0D] flex items-center justify-center text-sm">-</button>
+                          <span className="text-sm">{item.quantity}</span>
+                          <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="w-6 h-6 border border-[#0B0B0D] flex items-center justify-center text-sm">+</button>
+                          <button onClick={() => onRemoveFromCart(item.id)} className="ml-auto text-[#6E6E73] accent-hover-text">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="border-t border-[#0B0B0D]/10 pt-4">
+                    <div className="flex justify-between mb-4">
+                      <span className="font-medium">Subtotal</span>
+                      <span className="font-bold">${total.toFixed(2)}</span>
+                    </div>
+                    <div className="grid gap-3">
+                      <Button onClick={handleCardCheckoutClick} className="w-full bg-[#0B0B0D] hover:bg-[#1B1B20] text-white rounded-none">
+                        Pay with Card
+                      </Button>
+                      <Button onClick={handleCheckoutClick} className="w-full accent-bg hover:brightness-110 text-white rounded-none">
+                        Proceed to Bank Transfer
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {mobileMenuOpen && (
           <div className="md:hidden bg-[#F6F6F2] border-t border-[#0B0B0D]/10 px-6 py-4">
@@ -174,17 +217,16 @@ export function Navigation({
 
               <div className="pt-2 border-t border-[#0B0B0D]/10">
                 <p className="text-xs uppercase tracking-mono text-[#6E6E73] mb-2">Accent</p>
-                <div className="flex items-center gap-2">
-                  {accents.map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => setAccent(option.id)}
-                      className={`w-6 h-6 border border-[#0B0B0D]/20 ${accent === option.id ? 'ring-2 ring-[#0B0B0D]' : ''}`}
-                      style={{ backgroundColor: option.hex }}
-                      aria-label={`Use ${option.label} accent`}
-                    />
-                  ))}
-                </div>
+                <AccentPicker compact />
+              </div>
+
+              <div className="pt-2 border-t border-[#0B0B0D]/10 grid gap-2">
+                <button onClick={handleCardCheckoutClick} className="text-left text-sm font-medium accent-hover-text">
+                  Pay with Card
+                </button>
+                <button onClick={handleCheckoutClick} className="text-left text-sm font-medium accent-hover-text">
+                  Proceed to Bank Transfer
+                </button>
               </div>
             </div>
           </div>

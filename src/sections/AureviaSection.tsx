@@ -1,6 +1,7 @@
 import { useRef, useLayoutEffect, useState, useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useNavigate } from 'react-router-dom';
 import type { Product } from '@/types';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { listFeaturedProductsBySection } from '@/lib/productsApi';
@@ -15,6 +16,7 @@ interface AureviaSectionProps {
 
 export function AureviaSection({ onAddToCart }: AureviaSectionProps) {
   const reducedMotion = useReducedMotion();
+  const navigate = useNavigate();
   const sectionRef = useRef<HTMLElement>(null);
   const tileGRef = useRef<HTMLDivElement>(null);
   const tileHRef = useRef<HTMLDivElement>(null);
@@ -62,9 +64,9 @@ export function AureviaSection({ onAddToCart }: AureviaSectionProps) {
         scrollTrigger: {
           trigger: section,
           start: 'top top',
-          end: '+=130%',
+          end: '+=100%',
           pin: true,
-          scrub: 0.6,
+          scrub: 0.28,
         }
       });
 
@@ -85,19 +87,19 @@ export function AureviaSection({ onAddToCart }: AureviaSectionProps) {
 
       // Tiles slide in
       scrollTl.fromTo(tileGRef.current,
-        { x: '-50vw', opacity: 0 },
+        { x: '-36vw', opacity: 0 },
         { x: 0, opacity: 1, ease: 'none' },
         0
       );
 
       scrollTl.fromTo(tileHRef.current,
-        { x: '50vw', opacity: 0 },
+        { x: '36vw', opacity: 0 },
         { x: 0, opacity: 1, ease: 'none' },
         0.05
       );
 
       scrollTl.fromTo(tileIRef.current,
-        { y: '50vh', opacity: 0 },
+        { y: '34vh', opacity: 0 },
         { y: 0, opacity: 1, ease: 'none' },
         0.1
       );
@@ -117,7 +119,7 @@ export function AureviaSection({ onAddToCart }: AureviaSectionProps) {
 
       // Product card
       scrollTl.fromTo(productCardRef.current,
-        { y: '45vh', scale: 0.92, opacity: 0 },
+        { y: '30vh', scale: 0.95, opacity: 0 },
         { y: 0, scale: 1, opacity: 1, ease: 'none' },
         0.2
       );
@@ -219,6 +221,7 @@ export function AureviaSection({ onAddToCart }: AureviaSectionProps) {
           <FeaturedProductsCarousel
             products={carouselProducts}
             onAddToCart={onAddToCart}
+            onViewProduct={(product) => navigate(`/product/${product.id}`)}
             compact
             className="h-full"
           />

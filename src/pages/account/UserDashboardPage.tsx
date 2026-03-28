@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { listUserOrders, type OrderRecord } from '@/lib/ordersApi';
 import { fetchJson, readJsonResponse } from '@/lib/apiErrors';
+import { formatTrackingStatus } from '@/lib/orderTracking';
 import { useAuth, useClerk } from '@clerk/clerk-react';
 
 type DashboardUser = {
@@ -13,7 +14,7 @@ type DashboardUser = {
 export function UserDashboardPage() {
   const navigate = useNavigate();
   const { signOut } = useClerk();
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const [user, setUser] = useState<DashboardUser | null>(null);
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,11 +23,13 @@ export function UserDashboardPage() {
     const load = async () => {
       setIsLoading(true);
       try {
+        const sessionToken = await getToken();
         const [profileResponse, userOrders] = await Promise.all([
           fetchJson(`${(import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'https://api.aureviacare.com.ng'}/api/users/me`, {
             credentials: 'include',
+            headers: sessionToken ? { Authorization: `Bearer ${sessionToken}` } : undefined,
           }),
-          listUserOrders(),
+          listUserOrders(getToken),
         ]);
 
         const profileData = await readJsonResponse<{ ok?: boolean; error?: string; user?: unknown }>(profileResponse);
@@ -46,7 +49,7 @@ export function UserDashboardPage() {
     };
 
     load();
-  }, []);
+  }, [getToken]);
 
   if (isLoaded && !isSignedIn) {
     return <Navigate to="/account/login" replace state={{ from: '/account/dashboard' }} />;
@@ -82,6 +85,20 @@ export function UserDashboardPage() {
           <button onClick={handleLogout} className="btn-pink-outline px-4 py-2 text-sm">Logout</button>
         </div>
 
+        <div className="bg-white border border-[#0B0B0D]/10 p-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              Profile
+            </h3>
+            <p className="text-sm text-[#6E6E73]">
+              Keep your profile details current and return to the storefront when you’re done.
+            </p>
+          </div>
+          <button onClick={() => navigate('/account/profile')} className="btn-pink-outline px-4 py-2 text-sm">
+            Open Profile
+          </button>
+        </div>
+
         <div className="bg-white border border-[#0B0B0D]/10 p-6">
           <h3 className="text-xl font-bold mb-4" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             Order History
@@ -97,7 +114,7 @@ export function UserDashboardPage() {
                 <div key={order.id} className="py-3 flex items-center justify-between gap-4">
                   <div>
                     <p className="font-semibold">{order.id}</p>
-                    <p className="text-xs text-[#6E6E73]">Status: {order.status}</p>
+                    <p className="text-xs text-[#6E6E73]">Status: {formatTrackingStatus(order.status)}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold">${Number(order.subtotal).toFixed(2)}</p>
@@ -105,7 +122,7 @@ export function UserDashboardPage() {
                       onClick={() => navigate(`/manual-order/${order.id}`)}
                       className="text-xs accent-text underline"
                     >
-                      View Details
+                      Track order
                     </button>
                   </div>
                 </div>

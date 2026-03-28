@@ -1,6 +1,7 @@
 import { useRef, useLayoutEffect, useState, useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useNavigate } from 'react-router-dom';
 import type { Product } from '@/types';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { listFeaturedProductsBySection } from '@/lib/productsApi';
@@ -15,6 +16,7 @@ interface DeconstructedSectionProps {
 
 export function DeconstructedSection({ onAddToCart }: DeconstructedSectionProps) {
   const reducedMotion = useReducedMotion();
+  const navigate = useNavigate();
   const sectionRef = useRef<HTMLElement>(null);
   const tileMRef = useRef<HTMLDivElement>(null);
   const tileNRef = useRef<HTMLDivElement>(null);
@@ -64,46 +66,46 @@ export function DeconstructedSection({ onAddToCart }: DeconstructedSectionProps)
         scrollTrigger: {
           trigger: section,
           start: 'top top',
-          end: '+=140%',
+          end: '+=110%',
           pin: true,
-          scrub: 0.6,
+          scrub: 0.28,
         }
       });
 
       // ENTRANCE (0% - 30%)
       scrollTl.fromTo(headlineRef.current,
-        { y: '-35vh', opacity: 0 },
+        { y: '-24vh', opacity: 0 },
         { y: 0, opacity: 1, ease: 'none' },
         0
       );
 
       scrollTl.fromTo(subheadlineRef.current,
-        { y: '-25vh', opacity: 0 },
+        { y: '-18vh', opacity: 0 },
         { y: 0, opacity: 1, ease: 'none' },
         0.05
       );
 
       // Tiles from edges
       scrollTl.fromTo(tileMRef.current,
-        { x: '-50vw', opacity: 0 },
+        { x: '-36vw', opacity: 0 },
         { x: 0, opacity: 1, ease: 'none' },
         0.08
       );
 
       scrollTl.fromTo(tileNRef.current,
-        { x: '-50vw', y: '20vh', opacity: 0 },
+        { x: '-36vw', y: '14vh', opacity: 0 },
         { x: 0, y: 0, opacity: 1, ease: 'none' },
         0.1
       );
 
       scrollTl.fromTo(tileORef.current,
-        { x: '50vw', opacity: 0 },
+        { x: '36vw', opacity: 0 },
         { x: 0, opacity: 1, ease: 'none' },
         0.12
       );
 
       scrollTl.fromTo(tilePRef.current,
-        { x: '50vw', y: '20vh', opacity: 0 },
+        { x: '36vw', y: '14vh', opacity: 0 },
         { x: 0, y: 0, opacity: 1, ease: 'none' },
         0.14
       );
@@ -117,7 +119,7 @@ export function DeconstructedSection({ onAddToCart }: DeconstructedSectionProps)
 
       // Product card
       scrollTl.fromTo(productCardRef.current,
-        { y: '50vh', scale: 0.9, opacity: 0 },
+        { y: '34vh', scale: 0.95, opacity: 0 },
         { y: 0, scale: 1, opacity: 1, ease: 'none' },
         0.2
       );
@@ -222,6 +224,7 @@ export function DeconstructedSection({ onAddToCart }: DeconstructedSectionProps)
           <FeaturedProductsCarousel
             products={carouselProducts}
             onAddToCart={onAddToCart}
+            onViewProduct={(product) => navigate(`/product/${product.id}`)}
             compact
             ctaLabel="Shop Now"
             className="w-full max-w-[280px]"

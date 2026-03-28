@@ -83,9 +83,9 @@ export function HeroSection() {
         scrollTrigger: {
           trigger: section,
           start: 'top top',
-          end: '+=130%',
+          end: '+=100%',
           pin: true,
-          scrub: 0.6,
+          scrub: 0.28,
           onLeaveBack: () => {
             // Reset all elements to visible when scrolling back to top
             gsap.set([tileARef.current, tileBRef.current, tileCRef.current, tileDRef.current], {
@@ -116,37 +116,37 @@ export function HeroSection() {
 
       scrollTl.fromTo(tileARef.current,
         { x: 0, opacity: 1, rotation: 0 },
-        { x: '-55vw', opacity: 0.2, rotation: -2, ease: 'power2.in' },
+        { x: '-40vw', opacity: 0.25, rotation: -1.5, ease: 'power2.in' },
         0.7
       );
 
       scrollTl.fromTo(tileBRef.current,
         { x: 0, opacity: 1, rotation: 0 },
-        { x: '55vw', opacity: 0.2, rotation: 2, ease: 'power2.in' },
+        { x: '40vw', opacity: 0.25, rotation: 1.5, ease: 'power2.in' },
         0.7
       );
 
       scrollTl.fromTo(tileCRef.current,
         { y: 0, opacity: 1 },
-        { y: '40vh', opacity: 0.2, ease: 'power2.in' },
+        { y: '28vh', opacity: 0.25, ease: 'power2.in' },
         0.72
       );
 
       scrollTl.fromTo(tileDRef.current,
         { y: 0, opacity: 1 },
-        { y: '-40vh', opacity: 0.2, ease: 'power2.in' },
+        { y: '-28vh', opacity: 0.25, ease: 'power2.in' },
         0.72
       );
 
       scrollTl.fromTo(pinkBlock1Ref.current,
         { x: 0, opacity: 1 },
-        { x: '-30vw', opacity: 0.2, ease: 'power2.in' },
+        { x: '-20vw', opacity: 0.25, ease: 'power2.in' },
         0.75
       );
 
       scrollTl.fromTo(pinkBlock2Ref.current,
         { y: 0, opacity: 1 },
-        { y: '30vh', opacity: 0.2, ease: 'power2.in' },
+        { y: '20vh', opacity: 0.25, ease: 'power2.in' },
         0.75
       );
 

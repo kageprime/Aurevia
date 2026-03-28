@@ -35,7 +35,7 @@ const defaultProductForm: ProductFormState = {
 
 export function AdminPage() {
   const { signOut } = useClerk();
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
@@ -53,7 +53,7 @@ export function AdminPage() {
   const loadOrders = async () => {
     setIsLoadingOrders(true);
     try {
-      const data = await listAdminOrders();
+      const data = await listAdminOrders(getToken);
       setOrders(data);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not load orders.';
@@ -83,8 +83,10 @@ export function AdminPage() {
 
     const verifyAdminAccess = async () => {
       try {
+        const sessionToken = await getToken();
         const response = await fetchJson(`${backendUrl.replace(/\/$/, '')}/api/admin/me`, {
           credentials: 'include',
+          headers: sessionToken ? { Authorization: `Bearer ${sessionToken}` } : undefined,
         });
         const data = await readJsonResponse<{ ok?: boolean }>(response);
         setIsAdminAllowed(Boolean(response.ok && data?.ok));
@@ -98,7 +100,7 @@ export function AdminPage() {
     void verifyAdminAccess();
     loadOrders();
     loadProducts();
-  }, [isLoaded, isSignedIn]);
+  }, [getToken, isLoaded, isSignedIn]);
 
   const handleLogout = async () => {
     await signOut({ redirectUrl: '/admin/login' });
@@ -136,7 +138,7 @@ export function AdminPage() {
         image: form.image.trim(),
         description: form.description.trim(),
         isActive: true,
-      });
+      }, getToken);
 
       setProducts((current) => [...current, created]);
       setForm(defaultProductForm);
@@ -153,7 +155,7 @@ export function AdminPage() {
     try {
       const updated = await updateAdminProduct(product.id, {
         isActive: product.isActive === false,
-      });
+      }, getToken);
 
       setProducts((current) => current.map((item) => (item.id === product.id ? updated : item)));
       toast.success(`${updated.name} is now ${updated.isActive === false ? 'inactive' : 'active'}.`);
@@ -165,7 +167,7 @@ export function AdminPage() {
 
   const handleDeleteProduct = async (product: Product) => {
     try {
-      await deleteAdminProduct(product.id);
+      await deleteAdminProduct(product.id, getToken);
       setProducts((current) => current.filter((item) => item.id !== product.id));
       toast.success(`${product.name} deleted.`);
     } catch (error) {

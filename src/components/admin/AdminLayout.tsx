@@ -13,7 +13,7 @@ const navItemClass = ({ isActive }: { isActive: boolean }) =>
 export function AdminLayout() {
   const navigate = useNavigate();
   const { signOut } = useClerk();
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const [isAdminChecked, setIsAdminChecked] = useState(false);
   const [isAdminAllowed, setIsAdminAllowed] = useState<boolean | null>(null);
 
@@ -24,8 +24,10 @@ export function AdminLayout() {
 
     const verifyAdminAccess = async () => {
       try {
+        const sessionToken = await getToken();
         const response = await fetchJson(`${backendUrl.replace(/\/$/, '')}/api/admin/me`, {
           credentials: 'include',
+          headers: sessionToken ? { Authorization: `Bearer ${sessionToken}` } : undefined,
         });
         const data = await readJsonResponse<{ ok?: boolean }>(response);
         setIsAdminAllowed(Boolean(response.ok && data?.ok));
@@ -37,7 +39,7 @@ export function AdminLayout() {
     };
 
     void verifyAdminAccess();
-  }, [isLoaded, isSignedIn]);
+  }, [getToken, isLoaded, isSignedIn]);
 
   if (!isLoaded) {
     return (

@@ -7,7 +7,11 @@ import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 gsap.registerPlugin(ScrollTrigger);
 
-export function Footer() {
+type FooterProps = {
+  disableReveal?: boolean;
+};
+
+export function Footer({ disableReveal = false }: FooterProps) {
   const reducedMotion = useReducedMotion();
   const sectionRef = useRef<HTMLElement>(null);
   const newsletterRef = useRef<HTMLDivElement>(null);
@@ -16,7 +20,7 @@ export function Footer() {
   const [subscribed, setSubscribed] = useState(false);
 
   useLayoutEffect(() => {
-    if (reducedMotion) return;
+    if (reducedMotion || disableReveal) return;
 
     const section = sectionRef.current;
     if (!section) return;
@@ -58,7 +62,7 @@ export function Footer() {
     }, section);
 
     return () => ctx.revert();
-  }, [reducedMotion]);
+  }, [disableReveal, reducedMotion]);
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();

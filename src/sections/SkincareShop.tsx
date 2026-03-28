@@ -2,6 +2,7 @@ import { useRef, useLayoutEffect, useState, useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { Product } from '@/types';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { listFeaturedProductsBySection, listProducts } from '@/lib/productsApi';
@@ -19,6 +20,7 @@ export function SkincareShop({ onAddToCart }: SkincareShopProps) {
   const LOAD_MORE_STEP = 3;
 
   const reducedMotion = useReducedMotion();
+  const navigate = useNavigate();
   const sectionRef = useRef<HTMLElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const featuredRef = useRef<HTMLDivElement>(null);
@@ -54,15 +56,15 @@ export function SkincareShop({ onAddToCart }: SkincareShopProps) {
       const featuredImg = featuredRef.current?.querySelector('img');
       if (featuredImg) {
         gsap.fromTo(featuredImg,
-          { y: 20 },
+          { y: 10 },
           {
-            y: -20,
+            y: -10,
             ease: 'none',
             scrollTrigger: {
               trigger: featuredRef.current,
               start: 'top bottom',
               end: 'bottom top',
-              scrub: true
+              scrub: 0.25
             }
           }
         );
@@ -121,6 +123,11 @@ export function SkincareShop({ onAddToCart }: SkincareShopProps) {
   const visibleProducts = remainingProducts.slice(0, visibleCount);
   const hasMoreProducts = visibleCount < remainingProducts.length;
 
+  const handleBuyNow = (product: Product) => {
+    onAddToCart(product);
+    navigate('/checkout/card');
+  };
+
   return (
     <section 
       ref={sectionRef}
@@ -151,6 +158,8 @@ export function SkincareShop({ onAddToCart }: SkincareShopProps) {
           <FeaturedProductsCarousel
             products={featuredProducts}
             onAddToCart={onAddToCart}
+            onViewProduct={(product) => navigate(`/product/${product.id}`)}
+            onBuyNow={handleBuyNow}
             ctaLabel="Add to Bag"
           />
         </div>
@@ -165,6 +174,15 @@ export function SkincareShop({ onAddToCart }: SkincareShopProps) {
             key={product.id}
             ref={el => { cardsRef.current[i] = el; }}
             className="group cursor-pointer"
+            onClick={() => navigate(`/product/${product.id}`)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                navigate(`/product/${product.id}`);
+              }
+            }}
           >
             <div className="relative aspect-square mb-4 overflow-hidden bg-white">
               <img 
@@ -174,15 +192,28 @@ export function SkincareShop({ onAddToCart }: SkincareShopProps) {
               />
               {/* Pink accent bar on hover */}
               <div className="absolute bottom-0 left-0 right-0 h-1 accent-bg transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-              
-              {/* Quick add button */}
-              <button 
-                onClick={() => onAddToCart(product)}
-                className="absolute bottom-4 right-4 w-10 h-10 accent-bg text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity duration-300 hover:bg-[#0B0B0D]"
-                aria-label={`Add ${product.name} to bag`}
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+              <div className="absolute bottom-4 right-4 flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity duration-300">
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleBuyNow(product);
+                  }}
+                  className="h-10 bg-white text-[#0B0B0D] text-sm font-medium px-4 flex items-center justify-center border border-white/70 hover:bg-[#0B0B0D] hover:text-white transition-colors whitespace-nowrap"
+                  aria-label={`Buy now ${product.name}`}
+                >
+                  Buy now
+                </button>
+                <button 
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAddToCart(product);
+                  }}
+                  className="w-10 h-10 accent-bg text-white flex items-center justify-center hover:bg-[#0B0B0D] transition-colors shrink-0"
+                  aria-label={`Add ${product.name} to bag`}
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
             </div>
             <h3 className="font-medium text-[#0B0B0D] mb-1">{product.name}</h3>
             <p className="text-[#6E6E73] text-sm">${product.price}</p>

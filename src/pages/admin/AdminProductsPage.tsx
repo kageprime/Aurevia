@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { FeaturedProductsBySection, FeaturedSectionKey, Product } from '@/types';
+import { useAuth } from '@clerk/clerk-react';
 import {
   createAdminProduct,
   deleteAdminProduct,
@@ -36,6 +37,7 @@ const featuredSections: Array<{ key: FeaturedSectionKey; title: string; category
 ];
 
 export function AdminProductsPage() {
+  const { getToken } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [featuredBySection, setFeaturedBySection] = useState<FeaturedProductsBySection>({
     'story-aurevia': [],
@@ -87,7 +89,7 @@ export function AdminProductsPage() {
         image: form.image.trim(),
         description: form.description.trim(),
         isActive: true,
-      });
+      }, getToken);
 
       setProducts((current) => [...current, created]);
       setForm(defaultProductForm);
@@ -104,7 +106,7 @@ export function AdminProductsPage() {
     try {
       const updated = await updateAdminProduct(product.id, {
         isActive: product.isActive === false,
-      });
+      }, getToken);
 
       setProducts((current) => current.map((item) => (item.id === product.id ? updated : item)));
       toast.success(`${updated.name} is now ${updated.isActive === false ? 'inactive' : 'active'}.`);
@@ -116,7 +118,7 @@ export function AdminProductsPage() {
 
   const handleDeleteProduct = async (product: Product) => {
     try {
-      await deleteAdminProduct(product.id);
+      await deleteAdminProduct(product.id, getToken);
       setProducts((current) => current.filter((item) => item.id !== product.id));
       toast.success(`${product.name} deleted.`);
     } catch (error) {
@@ -134,7 +136,7 @@ export function AdminProductsPage() {
 
     setSavingSection(sectionKey);
     try {
-      const updatedProducts = await updateAdminFeaturedProducts(sectionKey, nextIds);
+      const updatedProducts = await updateAdminFeaturedProducts(sectionKey, nextIds, getToken);
       setFeaturedBySection((current) => ({
         ...current,
         [sectionKey]: updatedProducts,

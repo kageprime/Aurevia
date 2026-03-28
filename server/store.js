@@ -1,18 +1,103 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defaultProducts } from './productsSeed.js';
 
-const orders = new Map();
-const events = [];
-const products = new Map(defaultProducts.map((product) => [product.id, product]));
-const users = new Map();
-const featuredBySection = new Map([
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const demoStorePath = process.env.DEMO_DATA_PATH
+  ? path.resolve(process.env.DEMO_DATA_PATH)
+  : path.join(__dirname, '.demo-store.json');
+
+let orders = new Map();
+let events = [];
+let products = new Map(defaultProducts.map((product) => [product.id, product]));
+let users = new Map();
+let featuredBySection = new Map([
   ['story-aurevia', ['velvet-matte-01', 'high-shine-gloss-01', 'hydrating-tint-01']],
   ['story-deconstructed', ['hydrating-tint-01', 'satin-color-01', 'precision-liner-01']],
   ['shop-lip', ['velvet-matte-01', 'high-shine-gloss-01', 'satin-color-01']],
   ['shop-skincare', ['recovery-balm-01', 'daily-serum-01', 'moisturizer-01']],
 ]);
 
+function toMap(entries = []) {
+  return new Map(
+    Array.isArray(entries)
+      ? entries.filter((entry) => Array.isArray(entry) && entry.length >= 2)
+      : []
+  );
+}
+
+function snapshotState() {
+  return {
+    orders: [...orders.values()],
+    events,
+    products: [...products.values()],
+    users: [...users.values()],
+    featuredBySection: [...featuredBySection.entries()],
+  };
+}
+
+function persistState() {
+  if (process.env.PERSIST_DEMO_DATA === 'false') {
+    return;
+  }
+
+  try {
+    fs.writeFileSync(demoStorePath, `${JSON.stringify(snapshotState(), null, 2)}\n`, 'utf8');
+  } catch {
+    // Demo persistence is best-effort; runtime behavior should continue even if the snapshot cannot be written.
+  }
+}
+
+function loadPersistedState() {
+  if (process.env.PERSIST_DEMO_DATA === 'false' || !fs.existsSync(demoStorePath)) {
+    return false;
+  }
+
+  try {
+    const raw = fs.readFileSync(demoStorePath, 'utf8');
+    if (!raw.trim()) {
+      return false;
+    }
+
+    const snapshot = JSON.parse(raw);
+
+    orders = new Map(
+      (Array.isArray(snapshot.orders) ? snapshot.orders : [])
+        .filter((order) => order && typeof order.id === 'string')
+        .map((order) => [order.id, order])
+    );
+    events = Array.isArray(snapshot.events) ? snapshot.events : [];
+    products = new Map(
+      (Array.isArray(snapshot.products) ? snapshot.products : [])
+        .filter((product) => product && typeof product.id === 'string')
+        .map((product) => [product.id, product])
+    );
+    users = new Map(
+      (Array.isArray(snapshot.users) ? snapshot.users : [])
+        .filter((user) => user && typeof user.id === 'string')
+        .map((user) => [user.id, user])
+    );
+    featuredBySection = new Map(
+      (Array.isArray(snapshot.featuredBySection) ? snapshot.featuredBySection : [])
+        .filter((entry) => Array.isArray(entry) && typeof entry[0] === 'string')
+        .map(([sectionKey, productIds]) => [sectionKey, Array.isArray(productIds) ? productIds : []])
+    );
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+if (!loadPersistedState()) {
+  persistState();
+}
+
 export function createOrder(order) {
   orders.set(order.id, order);
+  persistState();
   return order;
 }
 
@@ -36,6 +121,7 @@ export function updateOrderStatus(orderId, status) {
   };
 
   orders.set(orderId, updated);
+  persistState();
   return updated;
 }
 
@@ -52,6 +138,7 @@ export function patchOrder(orderId, patch) {
   };
 
   orders.set(orderId, updated);
+  persistState();
   return updated;
 }
 
@@ -71,6 +158,7 @@ export function listOrdersByUser(userId) {
 
 export function pushEvent(event) {
   events.push(event);
+  persistState();
   return event;
 }
 
@@ -100,6 +188,7 @@ export function getProduct(productId) {
 
 export function createProduct(product) {
   products.set(product.id, product);
+  persistState();
   return product;
 }
 
@@ -116,6 +205,7 @@ export function updateProduct(productId, patch) {
   };
 
   products.set(productId, updated);
+  persistState();
   return updated;
 }
 
@@ -127,6 +217,10 @@ export function deleteProduct(productId) {
       const nextIds = productIds.filter((id) => id !== productId);
       featuredBySection.set(sectionKey, nextIds);
     });
+  }
+
+  if (deleted) {
+    persistState();
   }
 
   return deleted;
@@ -162,11 +256,13 @@ export function listFeaturedBySection({ section, includeInactive = false } = {})
 export function setFeaturedProducts(section, productIds) {
   const uniqueIds = [...new Set(productIds)];
   featuredBySection.set(section, uniqueIds);
+  persistState();
   return uniqueIds;
 }
 
 export function createUser(user) {
   users.set(user.id, user);
+  persistState();
   return user;
 }
 
@@ -191,5 +287,6 @@ export function updateUser(userId, patch) {
   };
 
   users.set(userId, updated);
+  persistState();
   return updated;
 }

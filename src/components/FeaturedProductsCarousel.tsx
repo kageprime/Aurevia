@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 type FeaturedProductsCarouselProps = {
   products: Product[];
   onAddToCart: (product: Product) => void;
+  onViewProduct?: (product: Product) => void;
+  onBuyNow?: (product: Product) => void;
   ctaLabel?: string;
   compact?: boolean;
   className?: string;
@@ -14,6 +16,8 @@ type FeaturedProductsCarouselProps = {
 export function FeaturedProductsCarousel({
   products,
   onAddToCart,
+  onViewProduct,
+  onBuyNow,
   ctaLabel = 'Add to Bag',
   compact = false,
   className,
@@ -43,33 +47,57 @@ export function FeaturedProductsCarousel({
     <div className={cn('relative', className)}>
       {compact ? (
         <div className="bg-white h-full flex flex-col">
-          <div className="flex-1 relative min-h-[220px]">
+          <button
+            type="button"
+            onClick={() => onViewProduct?.(activeProduct)}
+            className="flex-1 relative min-h-[220px] text-left"
+            aria-label={`View ${activeProduct.name}`}
+          >
             <img
               src={activeProduct.image}
               alt={activeProduct.name}
               className="w-full h-full object-cover grayscale-warm"
             />
-          </div>
+          </button>
           <div className="p-4 accent-bg text-white">
             <h3 className="font-bold text-sm mb-1">{activeProduct.name}</h3>
             <p className="text-lg font-bold mb-3">${activeProduct.price}</p>
-            <button
-              onClick={() => onAddToCart(activeProduct)}
-              className="w-full bg-white text-[#0B0B0D] py-2 text-sm font-medium hover:bg-[#0B0B0D] hover:text-white transition-colors"
-            >
-              {ctaLabel}
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => onAddToCart(activeProduct)}
+                className="w-full bg-white text-[#0B0B0D] py-2 text-sm font-medium hover:bg-[#0B0B0D] hover:text-white transition-colors"
+              >
+                {ctaLabel}
+              </button>
+              <button
+                onClick={() => onBuyNow?.(activeProduct)}
+                className="w-full border border-white/40 text-white py-2 text-sm font-medium hover:bg-white hover:text-[#0B0B0D] transition-colors"
+              >
+                Buy now
+              </button>
+              <button
+                onClick={() => onViewProduct?.(activeProduct)}
+                className="hidden"
+              >
+                View
+              </button>
+            </div>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2">
-          <div className="aspect-[4/3] lg:aspect-auto overflow-hidden">
+          <button
+            type="button"
+            onClick={() => onViewProduct?.(activeProduct)}
+            className="aspect-[4/3] lg:aspect-auto overflow-hidden text-left"
+            aria-label={`View ${activeProduct.name}`}
+          >
             <img
               src={activeProduct.image}
               alt={activeProduct.name}
               className="w-full h-full object-cover grayscale-warm"
             />
-          </div>
+          </button>
           <div className="accent-bg text-white p-8 lg:p-12 flex flex-col justify-center">
             <span className="font-mono text-xs tracking-mono uppercase mb-4 opacity-80">
               Featured
@@ -77,12 +105,26 @@ export function FeaturedProductsCarousel({
             <h3 className="text-2xl lg:text-3xl font-bold mb-2">{activeProduct.name}</h3>
             <p className="text-lg mb-4 opacity-90">${activeProduct.price}</p>
             <p className="mb-6 opacity-80">{activeProduct.description}</p>
-            <button
-              onClick={() => onAddToCart(activeProduct)}
-              className="bg-white text-[#0B0B0D] px-6 py-3 font-medium w-fit hover:bg-[#0B0B0D] hover:text-white transition-colors"
-            >
-              {ctaLabel}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => onAddToCart(activeProduct)}
+                className="bg-white text-[#0B0B0D] px-6 py-3 font-medium w-fit hover:bg-[#0B0B0D] hover:text-white transition-colors"
+              >
+                {ctaLabel}
+              </button>
+              <button
+                onClick={() => onBuyNow?.(activeProduct)}
+                className="border border-white/40 text-white px-6 py-3 font-medium w-fit hover:bg-white hover:text-[#0B0B0D] transition-colors"
+              >
+                Buy now
+              </button>
+              <button
+                onClick={() => onViewProduct?.(activeProduct)}
+                className="border border-white/40 text-white px-6 py-3 font-medium w-fit hover:bg-white hover:text-[#0B0B0D] transition-colors"
+              >
+                View product
+              </button>
+            </div>
           </div>
         </div>
       )}

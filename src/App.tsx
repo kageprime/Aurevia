@@ -1,14 +1,16 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useAuth } from '@clerk/clerk-react';
 import { Navigation } from '@/components/Navigation';
 import { HomePage } from '@/pages/HomePage';
 import { StoryPage } from '@/pages/StoryPage';
 import { ShopPage } from '@/pages/ShopPage';
+import { ProductPage } from '@/pages/ProductPage';
 import { ManualOrderPage } from '@/pages/ManualOrderPage';
+import { CardCheckoutPage } from './pages/CardCheckoutPage';
 import { UserAuthPage } from '@/pages/account/UserAuthPage';
+import { UserSignUpPage } from '@/pages/account/UserSignUpPage';
+import { UserProfilePage } from '@/pages/account/UserProfilePage';
 import { UserDashboardPage } from '@/pages/account/UserDashboardPage';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { AdminLoginPage } from '@/pages/admin/AdminLoginPage';
@@ -23,13 +25,13 @@ import type { Product } from '@/types';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 
-gsap.registerPlugin(ScrollTrigger);
-
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const isAdminRoute = location.pathname.startsWith('/admin');
+  const isAccountRoute = location.pathname.startsWith('/account');
+  const isCheckoutRoute = location.pathname.startsWith('/checkout');
   const { items, total, itemCount, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
   const reducedMotion = useReducedMotion();
 
@@ -51,7 +53,7 @@ function App() {
     }
 
     try {
-      const result = await createManualTransferOrder(items);
+      const result = await createManualTransferOrder(items, getToken);
       clearCart();
       toast.success('Order created. Upload your transfer receipt to continue.');
       navigate(`/manual-order/${result.orderId}`);
@@ -59,65 +61,27 @@ function App() {
       const message = error instanceof Error ? error.message : 'Checkout could not be started.';
       toast.error(message);
     }
-  }, [clearCart, isLoaded, isSignedIn, items, location.hash, location.pathname, navigate]);
+  }, [clearCart, getToken, isLoaded, isSignedIn, items, location.hash, location.pathname, navigate]);
 
-  // Global scroll snap for pinned sections
-  useEffect(() => {
-    if (reducedMotion || isAdminRoute) {
+  const handleCardCheckout = useCallback(() => {
+    if (!isLoaded) {
+      toast.info('Loading your session. Try again in a moment.');
       return;
     }
 
-    let globalSnapTrigger: ScrollTrigger | undefined;
+    if (!isSignedIn) {
+      toast.error('Please sign in before continuing to checkout.');
+      navigate('/account/login', { state: { from: '/checkout/card' } });
+      return;
+    }
 
-    // Wait for all ScrollTriggers to be created
-    const timeout = setTimeout(() => {
-      const pinned = ScrollTrigger.getAll()
-        .filter(st => st.vars.pin)
-        .sort((a, b) => a.start - b.start);
-      
-      const maxScroll = ScrollTrigger.maxScroll(window);
-      
-      if (!maxScroll || pinned.length === 0) return;
+    if (items.length === 0) {
+      toast.error('Your bag is empty.');
+      return;
+    }
 
-      // Build ranges and snap targets from pinned sections
-      const pinnedRanges = pinned.map(st => ({
-        start: st.start / maxScroll,
-        end: (st.end ?? st.start) / maxScroll,
-        center: (st.start + ((st.end ?? st.start) - st.start) * 0.5) / maxScroll,
-      }));
-
-      // Create global snap
-      globalSnapTrigger = ScrollTrigger.create({
-        snap: {
-          snapTo: (value: number) => {
-            // Check if within any pinned range (with buffer)
-            const inPinned = pinnedRanges.some(
-              r => value >= r.start - 0.08 && value <= r.end + 0.08
-            );
-            
-            if (!inPinned) return value; // Flowing section: free scroll
-
-            // Find nearest pinned center
-            const target = pinnedRanges.reduce((closest, r) =>
-              Math.abs(r.center - value) < Math.abs(closest - value) ? r.center : closest,
-              pinnedRanges[0]?.center ?? 0
-            );
-            
-            return target;
-          },
-          duration: { min: 0.15, max: 0.35 },
-          delay: 0,
-          ease: 'power2.out'
-        }
-      });
-
-    }, 500);
-
-    return () => {
-      clearTimeout(timeout);
-      globalSnapTrigger?.kill();
-    };
-  }, [isAdminRoute, location.pathname, reducedMotion]);
+    navigate('/checkout/card');
+  }, [isLoaded, isSignedIn, items.length, navigate]);
 
   // Route hash navigation support
   useEffect(() => {
@@ -135,7 +99,7 @@ function App() {
     const timeout = setTimeout(() => {
       const element = document.getElementById(sectionId);
       if (element) {
-        element.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
+        element.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
       }
     }, 150);
 
@@ -143,13 +107,6 @@ function App() {
       clearTimeout(timeout);
     };
   }, [isAdminRoute, location.hash, location.pathname, reducedMotion]);
-
-  // Cleanup all ScrollTriggers on unmount
-  useEffect(() => {
-    return () => {
-      ScrollTrigger.getAll().forEach(st => st.kill());
-    };
-  }, []);
 
   if (isAdminRoute) {
     return (
@@ -165,13 +122,14 @@ function App() {
           <Route path="*" element={<Navigate to="/admin/orders" replace />} />
         </Routes>
 
+        <Footer />
         <Toaster position="bottom-right" richColors closeButton />
       </>
     );
   }
 
   return (
-    <div className="relative">
+    <div className="relative min-h-screen flex flex-col">
       <div className="grain-overlay" />
 
       <Navigation 
@@ -181,20 +139,24 @@ function App() {
         onRemoveFromCart={removeFromCart}
         onUpdateQuantity={updateQuantity}
         onCheckout={handleCheckout}
+        onPayWithCard={handleCardCheckout}
       />
 
-      <main className="relative">
+      <main className="relative flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/story" element={<StoryPage onAddToCart={handleAddToCart} />} />
           <Route path="/shop" element={<ShopPage onAddToCart={handleAddToCart} />} />
-          <Route path="/account/login" element={<UserAuthPage />} />
-          <Route path="/account/register" element={<UserAuthPage />} />
+          <Route path="/product/:productId" element={<ProductPage onAddToCart={handleAddToCart} />} />
+          <Route path="/account/login/*" element={<UserAuthPage />} />
+          <Route path="/account/register/*" element={<UserSignUpPage />} />
+          <Route path="/account/profile/*" element={<UserProfilePage />} />
           <Route path="/account/dashboard" element={<UserDashboardPage />} />
           <Route path="/manual-order/:orderId" element={<ManualOrderPage />} />
+          <Route path="/checkout/card" element={<CardCheckoutPage cartItems={items} clearCart={clearCart} />} />
           <Route path="*" element={<HomePage />} />
         </Routes>
-        <Footer />
+        <Footer disableReveal={isAdminRoute || isAccountRoute || isCheckoutRoute} />
       </main>
 
       <Toaster position="bottom-right" richColors closeButton />
