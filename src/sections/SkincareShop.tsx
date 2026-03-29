@@ -16,8 +16,8 @@ interface SkincareShopProps {
 }
 
 export function SkincareShop({ onAddToCart }: SkincareShopProps) {
-  const INITIAL_VISIBLE_PRODUCTS = 3;
-  const LOAD_MORE_STEP = 3;
+  const INITIAL_VISIBLE_PRODUCTS = 4;
+  const LOAD_MORE_STEP = 4;
 
   const reducedMotion = useReducedMotion();
   const navigate = useNavigate();
