@@ -137,7 +137,7 @@ export function Navigation({
           <div className="hidden md:flex items-center gap-8">
             <button onClick={() => navigateTo('/')} className="text-sm font-medium accent-hover-text">Home</button>
             <button onClick={() => navigateTo('/shop', 'shop-lip')} className="text-sm font-medium accent-hover-text">Shop</button>
-            <button onClick={() => navigateTo('/story', 'beauty-section')} className="text-sm font-medium accent-hover-text">Story</button>
+            <button onClick={() => navigateTo('/story')} className="text-sm font-medium accent-hover-text">Story</button>
             <button onClick={() => navigateTo('/shop', 'shop-skincare')} className="text-sm font-medium accent-hover-text">Care</button>
             <button onClick={() => navigateTo(accountPath)} className="text-sm font-medium accent-hover-text">Account</button>
 
@@ -209,7 +209,7 @@ export function Navigation({
                 <div className="flex w-full flex-col items-center gap-4">
                   <button onClick={() => navigateTo('/')} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Home</button>
                   <button onClick={() => navigateTo('/shop', 'shop-lip')} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Shop</button>
-                  <button onClick={() => navigateTo('/story', 'beauty-section')} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Story</button>
+                  <button onClick={() => navigateTo('/story')} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Story</button>
                   <button onClick={() => navigateTo('/shop', 'shop-skincare')} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Care</button>
                   <button onClick={() => navigateTo(accountPath)} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Account</button>
                   <button onClick={openCart} className="mt-1 flex items-center justify-center gap-2 text-xl font-medium accent-hover-text">
