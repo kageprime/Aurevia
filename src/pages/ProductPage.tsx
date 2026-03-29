@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BadgeCheck, ShoppingBag, Sparkles } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Product } from '@/types';
 import { listProducts } from '@/lib/productsApi';
@@ -61,14 +61,14 @@ export function ProductPage({ onAddToCart, onViewProduct }: ProductPageProps) {
   };
 
   return (
-    <section className="relative overflow-hidden bg-[#F6F6F2] pt-12 lg:pt-14 pb-20 px-6 lg:px-12 min-h-screen">
+    <section className="relative overflow-hidden bg-[#F6F6F2] pt-10 lg:pt-12 pb-20 px-4 sm:px-6 lg:px-12 min-h-screen">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-[rgba(255,45,143,0.08)] blur-3xl" />
         <div className="absolute bottom-0 left-8 h-64 w-64 rounded-full bg-[rgba(11,11,13,0.05)] blur-3xl" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto space-y-12">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="relative max-w-6xl mx-auto space-y-10 lg:space-y-12">
+        <div className="flex items-center justify-between gap-4 flex-wrap border-b border-[#0B0B0D]/10 pb-4">
           <button
             onClick={() => navigate(-1)}
             className="inline-flex items-center gap-2 text-sm font-medium text-[#0B0B0D] hover:text-[#FF2D8F] transition-colors"
@@ -76,21 +76,20 @@ export function ProductPage({ onAddToCart, onViewProduct }: ProductPageProps) {
             <ArrowLeft className="w-4 h-4" />
             Back
           </button>
-          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.28em] text-[#6E6E73]">
-            <Sparkles className="w-4 h-4 text-[#FF2D8F]" />
+          <div className="flex items-center text-xs uppercase tracking-[0.24em] text-[#6E6E73]">
             Product view
           </div>
         </div>
 
         {!product ? (
-          <div className="max-w-md bg-white border border-[#0B0B0D]/10 p-6">
+          <div className="max-w-md bg-white border border-[#0B0B0D]/10 p-6 shadow-[0_18px_45px_rgba(11,11,13,0.06)]">
             <p className="text-[#6E6E73]">Loading product...</p>
           </div>
         ) : (
           <>
-            <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] items-start">
-              <div className="bg-white border border-[#0B0B0D]/10 shadow-[0_20px_60px_rgba(11,11,13,0.06)] overflow-hidden">
-                <div className="aspect-[4/5] bg-[#F2F2EE] overflow-hidden">
+            <div className="grid gap-6 xl:gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] items-stretch">
+              <div className="h-full bg-white border border-[#0B0B0D]/10 shadow-[0_20px_60px_rgba(11,11,13,0.06)] overflow-hidden">
+                <div className="aspect-[4/5] lg:aspect-[4/4.8] bg-[#F2F2EE] overflow-hidden h-full">
                   <img
                     src={product.image}
                     alt={product.name}
@@ -99,7 +98,7 @@ export function ProductPage({ onAddToCart, onViewProduct }: ProductPageProps) {
                 </div>
               </div>
 
-              <div className="bg-white border border-[#0B0B0D]/10 shadow-[0_20px_60px_rgba(11,11,13,0.06)] p-6 lg:p-8 space-y-6">
+              <div className="h-full bg-white border border-[#0B0B0D]/10 shadow-[0_20px_60px_rgba(11,11,13,0.06)] p-6 lg:p-8 flex flex-col gap-6">
                 <div>
                   <p className="text-xs uppercase tracking-[0.28em] text-[#6E6E73] mb-3">
                     {product.category} · {product.subcategory}
@@ -113,43 +112,45 @@ export function ProductPage({ onAddToCart, onViewProduct }: ProductPageProps) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="border border-[#0B0B0D]/10 p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="border border-[#0B0B0D]/10 p-4 min-h-[104px] flex flex-col justify-between">
                     <p className="text-xs uppercase tracking-[0.22em] text-[#6E6E73] mb-1">Price</p>
                     <p className="text-2xl font-bold">${product.price}</p>
                   </div>
-                  <div className="border border-[#0B0B0D]/10 p-4">
+                  <div className="border border-[#0B0B0D]/10 p-4 min-h-[104px] flex flex-col justify-between">
                     <p className="text-xs uppercase tracking-[0.22em] text-[#6E6E73] mb-1">Category</p>
                     <p className="text-lg font-medium capitalize">{product.category}</p>
                   </div>
                 </div>
 
-                <p className="text-[#6E6E73] leading-7">{product.description}</p>
+                <p className="text-[#6E6E73] leading-7 border-y border-[#0B0B0D]/10 py-5">{product.description}</p>
 
-                <div className="space-y-3">
-                  <Button
-                    onClick={() => onAddToCart(product)}
-                    className="w-full accent-bg hover:brightness-110 text-white rounded-none py-6 text-base"
-                  >
-                    <ShoppingBag className="w-4 h-4" />
-                    Add to bag
-                  </Button>
-                  <Button
-                    onClick={handleBuyNow}
-                    className="w-full bg-[#0B0B0D] hover:bg-[#1B1B20] text-white rounded-none py-6 text-base"
-                  >
-                    Buy now
-                  </Button>
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="mt-auto space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Button
+                      onClick={() => onAddToCart(product)}
+                      className="w-full accent-bg hover:brightness-110 text-white rounded-none h-12 text-base"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      Add to bag
+                    </Button>
+                    <Button
+                      onClick={handleBuyNow}
+                      className="w-full bg-[#0B0B0D] hover:bg-[#1B1B20] text-white rounded-none h-12 text-base"
+                    >
+                      Buy now
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       onClick={() => navigate('/shop')}
-                      className="border border-[#0B0B0D]/10 py-3 font-medium hover:border-[#0B0B0D] transition-colors"
+                      className="border border-[#0B0B0D]/10 h-12 font-medium hover:border-[#0B0B0D] transition-colors"
                     >
                       Keep shopping
                     </button>
                     <button
                       onClick={() => onViewProduct?.(product)}
-                      className="border border-[#0B0B0D]/10 py-3 font-medium hover:border-[#0B0B0D] transition-colors"
+                      className="border border-[#0B0B0D]/10 h-12 font-medium hover:border-[#0B0B0D] transition-colors"
                     >
                       Share view
                     </button>
@@ -158,8 +159,8 @@ export function ProductPage({ onAddToCart, onViewProduct }: ProductPageProps) {
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] items-start">
-              <div className="bg-[#0B0B0D] text-white p-6 lg:p-8">
+            <div className="grid gap-6 lg:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.15fr)] items-stretch">
+              <div className="h-full bg-[#0B0B0D] text-white p-6 lg:p-8">
                 <p className="text-xs uppercase tracking-[0.28em] text-white/50 mb-3">Why it fits</p>
                 <ul className="space-y-3 text-sm text-white/85 leading-6">
                   <li>Designed to sit inside the same visual language as the editorial landing pages.</li>
@@ -168,7 +169,7 @@ export function ProductPage({ onAddToCart, onViewProduct }: ProductPageProps) {
                 </ul>
               </div>
 
-              <div className="border border-[#0B0B0D]/10 bg-white p-6 lg:p-8">
+              <div className="h-full border border-[#0B0B0D]/10 bg-white p-6 lg:p-8 flex flex-col">
                 <div className="flex items-center justify-between mb-5">
                   <h2 className="text-2xl font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                     Related products
@@ -184,7 +185,7 @@ export function ProductPage({ onAddToCart, onViewProduct }: ProductPageProps) {
                     onAddToCart={onAddToCart}
                     onViewProduct={(item) => navigate(`/product/${item.id}`)}
                     compact
-                    className="max-w-xl"
+                    className="w-full"
                   />
                 ) : (
                   <p className="text-[#6E6E73]">No related products yet.</p>
