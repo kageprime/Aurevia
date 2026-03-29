@@ -44,6 +44,15 @@ export function UserProfilePage() {
           </p>
         </div>
 
+        <div className="flex flex-wrap gap-3">
+          <button onClick={() => navigate('/account/dashboard')} className="btn-pink-outline px-4 py-2 text-sm">
+            Go to dashboard
+          </button>
+          <button onClick={() => navigate('/shop')} className="px-4 py-2 border border-[#0B0B0D]/10 text-sm hover:border-[#0B0B0D] transition-colors bg-white">
+            Continue shopping
+          </button>
+        </div>
+
         <div className="mx-auto w-full max-w-4xl overflow-hidden border border-[#0B0B0D]/10 bg-white shadow-[0_20px_60px_rgba(11,11,13,0.06)]">
           <div className="absolute inset-x-0 top-0 h-1 accent-bg" />
           <div className="p-4 lg:p-6">
@@ -61,15 +70,6 @@ export function UserProfilePage() {
               }}
             />
           </div>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <button onClick={() => navigate('/account/dashboard')} className="btn-pink-outline px-4 py-2 text-sm">
-            Go to dashboard
-          </button>
-          <button onClick={() => navigate('/shop')} className="px-4 py-2 border border-[#0B0B0D]/10 text-sm hover:border-[#0B0B0D] transition-colors bg-white">
-            Continue shopping
-          </button>
         </div>
       </div>
     </section>
