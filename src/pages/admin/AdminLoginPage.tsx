@@ -144,8 +144,9 @@ export function AdminLoginPage() {
         withSignUp={false}
         appearance={{
           elements: {
-            rootBox: 'w-full',
-            card: 'shadow-none border-0 bg-transparent',
+            rootBox: 'w-full flex justify-center',
+            cardBox: 'w-full max-w-[430px]',
+            card: 'w-full shadow-none border-0 bg-transparent',
             formButtonPrimary: 'accent-bg hover:brightness-110 text-white',
             footerActionLink: 'accent-text',
             identityPreviewEditButton: 'accent-text',

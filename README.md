@@ -48,6 +48,10 @@ If the login UI shows "Development mode", your frontend is still using a test Cl
 	1. Verify your Clerk domain resolves to Clerk infrastructure. A `404 DEPLOYMENT_NOT_FOUND` means DNS/proxy is pointing somewhere else.
 	2. In Clerk dashboard, complete custom domain setup and wait for SSL/status to become ready.
 	3. Temporary fallback: set `VITE_CLERK_JS_URL=https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js` and redeploy frontend.
+- Browser CORS + `404` for `https://clerk.<your-domain>/v1/client` or `/v1/environment`:
+	1. Your Clerk frontend API custom domain is not serving Clerk yet, so browser preflight/GET gets no `Access-Control-Allow-Origin`.
+	2. Temporary fallback: set `VITE_CLERK_PROXY_URL=https://new-grouse-17.clerk.accounts.dev` and redeploy frontend.
+	3. Permanent fix: complete Clerk custom domain setup for `clerk.<your-domain>` (DNS + SSL ready), then remove `VITE_CLERK_PROXY_URL`.
 
 ## Local development
 
