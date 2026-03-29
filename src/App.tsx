@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { Navigation } from '@/components/Navigation';
@@ -42,6 +42,20 @@ function App() {
   const isCheckoutRoute = location.pathname.startsWith('/checkout');
   const { items, total, itemCount, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
   const reducedMotion = useReducedMotion();
+
+  // Keep route transitions deterministic by preventing browser back/forward scroll restoration.
+  useEffect(() => {
+    if (!('scrollRestoration' in window.history)) {
+      return;
+    }
+
+    const previous = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
+
+    return () => {
+      window.history.scrollRestoration = previous;
+    };
+  }, []);
 
   const handleAddToCart = useCallback((product: Product) => {
     addToCart(product);
@@ -91,28 +105,44 @@ function App() {
     navigate('/checkout/card');
   }, [isLoaded, isSignedIn, items.length, navigate]);
 
-  // Route hash navigation support
+  // Ensure all non-hash route transitions open from the top.
+  useLayoutEffect(() => {
+    if (isAdminRoute || !location.hash) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  }, [isAdminRoute, location.hash, location.pathname, location.search]);
+
+  // Hash routes intentionally jump to sections.
   useEffect(() => {
-    if (isAdminRoute) {
-      window.scrollTo({ top: 0, behavior: 'auto' });
+    if (isAdminRoute || !location.hash) {
       return;
     }
 
-    const sectionId = location.hash.replace('#', '');
+    const sectionId = decodeURIComponent(location.hash.replace('#', ''));
     if (!sectionId) {
-      window.scrollTo({ top: 0, behavior: 'auto' });
       return;
     }
 
-    const timeout = setTimeout(() => {
+    const scrollToSection = () => {
       const element = document.getElementById(sectionId);
-      if (element) {
-        element.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+      if (!element) {
+        return false;
       }
+
+      element.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+      return true;
+    };
+
+    if (scrollToSection()) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      scrollToSection();
     }, 150);
 
     return () => {
-      clearTimeout(timeout);
+      window.clearTimeout(timeout);
     };
   }, [isAdminRoute, location.hash, location.pathname, reducedMotion]);
 
