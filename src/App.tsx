@@ -1,23 +1,7 @@
-import { useCallback, useEffect } from 'react';
+import { Suspense, lazy, useCallback, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { Navigation } from '@/components/Navigation';
-import { HomePage } from '@/pages/HomePage';
-import { StoryPage } from '@/pages/StoryPage';
-import { ShopPage } from '@/pages/ShopPage';
-import { ProductPage } from '@/pages/ProductPage';
-import { ManualOrderPage } from '@/pages/ManualOrderPage';
-import { CardCheckoutPage } from './pages/CardCheckoutPage';
-import { HelpTopicPage } from './pages/HelpTopicPage';
-import { UserAuthPage } from '@/pages/account/UserAuthPage';
-import { UserSignUpPage } from '@/pages/account/UserSignUpPage';
-import { UserProfilePage } from '@/pages/account/UserProfilePage';
-import { UserDashboardPage } from '@/pages/account/UserDashboardPage';
-import { AdminLayout } from '@/components/admin/AdminLayout';
-import { AdminLoginPage } from '@/pages/admin/AdminLoginPage';
-import { AdminOrdersPage } from '@/pages/admin/AdminOrdersPage';
-import { AdminProductsPage } from '@/pages/admin/AdminProductsPage';
-import { AdminSettingsPage } from '@/pages/admin/AdminSettingsPage';
 import { Footer } from '@/sections/Footer';
 import { useCart } from '@/hooks/useCart';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -25,6 +9,27 @@ import { createManualTransferOrder } from '@/lib/ordersApi';
 import type { Product } from '@/types';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
+
+const HomePage = lazy(() => import('@/pages/HomePage').then((module) => ({ default: module.HomePage })));
+const StoryPage = lazy(() => import('@/pages/StoryPage').then((module) => ({ default: module.StoryPage })));
+const ShopPage = lazy(() => import('@/pages/ShopPage').then((module) => ({ default: module.ShopPage })));
+const ProductPage = lazy(() => import('@/pages/ProductPage').then((module) => ({ default: module.ProductPage })));
+const ManualOrderPage = lazy(() => import('@/pages/ManualOrderPage').then((module) => ({ default: module.ManualOrderPage })));
+const CardCheckoutPage = lazy(() => import('@/pages/CardCheckoutPage').then((module) => ({ default: module.CardCheckoutPage })));
+const HelpTopicPage = lazy(() => import('@/pages/HelpTopicPage').then((module) => ({ default: module.HelpTopicPage })));
+const UserAuthPage = lazy(() => import('@/pages/account/UserAuthPage').then((module) => ({ default: module.UserAuthPage })));
+const UserSignUpPage = lazy(() => import('@/pages/account/UserSignUpPage').then((module) => ({ default: module.UserSignUpPage })));
+const UserProfilePage = lazy(() => import('@/pages/account/UserProfilePage').then((module) => ({ default: module.UserProfilePage })));
+const UserDashboardPage = lazy(() => import('@/pages/account/UserDashboardPage').then((module) => ({ default: module.UserDashboardPage })));
+const AdminLayout = lazy(() => import('@/components/admin/AdminLayout').then((module) => ({ default: module.AdminLayout })));
+const AdminLoginPage = lazy(() => import('@/pages/admin/AdminLoginPage').then((module) => ({ default: module.AdminLoginPage })));
+const AdminOrdersPage = lazy(() => import('@/pages/admin/AdminOrdersPage').then((module) => ({ default: module.AdminOrdersPage })));
+const AdminProductsPage = lazy(() => import('@/pages/admin/AdminProductsPage').then((module) => ({ default: module.AdminProductsPage })));
+const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage').then((module) => ({ default: module.AdminSettingsPage })));
+
+function RouteFallback() {
+  return <div className="min-h-[35vh]" aria-hidden="true" />;
+}
 
 function App() {
   const location = useLocation();
@@ -112,16 +117,18 @@ function App() {
   if (isAdminRoute) {
     return (
       <>
-        <Routes>
-          <Route path="/admin/login" element={<AdminLoginPage />} />
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Navigate to="/admin/orders" replace />} />
-            <Route path="orders" element={<AdminOrdersPage />} />
-            <Route path="products" element={<AdminProductsPage />} />
-            <Route path="settings" element={<AdminSettingsPage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/admin/orders" replace />} />
-        </Routes>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/admin/login" element={<AdminLoginPage />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="/admin/orders" replace />} />
+              <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="products" element={<AdminProductsPage />} />
+              <Route path="settings" element={<AdminSettingsPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/admin/orders" replace />} />
+          </Routes>
+        </Suspense>
 
         <Footer />
         <Toaster position="bottom-right" richColors closeButton />
@@ -144,20 +151,22 @@ function App() {
       />
 
       <main className="relative flex-1 pt-[96px] sm:pt-[108px]">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/story" element={<StoryPage onAddToCart={handleAddToCart} />} />
-          <Route path="/shop" element={<ShopPage onAddToCart={handleAddToCart} />} />
-          <Route path="/product/:productId" element={<ProductPage onAddToCart={handleAddToCart} />} />
-          <Route path="/help/:topic" element={<HelpTopicPage />} />
-          <Route path="/account/login/*" element={<UserAuthPage />} />
-          <Route path="/account/register/*" element={<UserSignUpPage />} />
-          <Route path="/account/profile/*" element={<UserProfilePage />} />
-          <Route path="/account/dashboard" element={<UserDashboardPage />} />
-          <Route path="/manual-order/:orderId" element={<ManualOrderPage />} />
-          <Route path="/checkout/card" element={<CardCheckoutPage cartItems={items} clearCart={clearCart} />} />
-          <Route path="*" element={<HomePage />} />
-        </Routes>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/story" element={<StoryPage onAddToCart={handleAddToCart} />} />
+            <Route path="/shop" element={<ShopPage onAddToCart={handleAddToCart} />} />
+            <Route path="/product/:productId" element={<ProductPage onAddToCart={handleAddToCart} />} />
+            <Route path="/help/:topic" element={<HelpTopicPage />} />
+            <Route path="/account/login/*" element={<UserAuthPage />} />
+            <Route path="/account/register/*" element={<UserSignUpPage />} />
+            <Route path="/account/profile/*" element={<UserProfilePage />} />
+            <Route path="/account/dashboard" element={<UserDashboardPage />} />
+            <Route path="/manual-order/:orderId" element={<ManualOrderPage />} />
+            <Route path="/checkout/card" element={<CardCheckoutPage cartItems={items} clearCart={clearCart} />} />
+            <Route path="*" element={<HomePage />} />
+          </Routes>
+        </Suspense>
         <Footer disableReveal={isAdminRoute || isAccountRoute || isCheckoutRoute} />
       </main>
 
