@@ -107,10 +107,38 @@ function App() {
 
   // Ensure all non-hash route transitions open from the top.
   useLayoutEffect(() => {
-    if (isAdminRoute || !location.hash) {
-      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    if (isAdminRoute || location.hash) {
+      return;
     }
-  }, [isAdminRoute, location.hash, location.pathname, location.search]);
+
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [isAdminRoute, location.hash, location.key, location.pathname, location.search]);
+
+  // Run a second pass after paint to avoid occasional preserved scroll on lazy routes.
+  useEffect(() => {
+    if (isAdminRoute || location.hash) {
+      return;
+    }
+
+    const rafId = window.requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    });
+
+    const timeout = window.setTimeout(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }, 120);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timeout);
+    };
+  }, [isAdminRoute, location.hash, location.key, location.pathname, location.search]);
 
   // Hash routes intentionally jump to sections.
   useEffect(() => {
