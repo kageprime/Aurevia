@@ -44,6 +44,10 @@ If the login UI shows "Development mode", your frontend is still using a test Cl
 	1. Confirm frontend and backend Clerk keys are from the same Clerk instance (live/live or test/test).
 	2. Confirm the signed-in email matches `ADMIN_EMAIL` on the backend.
 	3. Confirm `FRONTEND_ORIGIN` includes your deployed frontend origin (with and without `www` if needed).
+- `failed_to_load_clerk_js` or browser CORS error for `.../clerk.browser.js`:
+	1. Verify your Clerk domain resolves to Clerk infrastructure. A `404 DEPLOYMENT_NOT_FOUND` means DNS/proxy is pointing somewhere else.
+	2. In Clerk dashboard, complete custom domain setup and wait for SSL/status to become ready.
+	3. Temporary fallback: set `VITE_CLERK_JS_URL=https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js` and redeploy frontend.
 
 ## Local development
 
