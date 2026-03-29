@@ -9,16 +9,38 @@ const demoStorePath = process.env.DEMO_DATA_PATH
   ? path.resolve(process.env.DEMO_DATA_PATH)
   : path.join(__dirname, '.demo-store.json');
 
+const defaultFeaturedBySection = {
+  'story-aurevia': ['velvet-matte-01', 'cloud-mousse-01', 'high-shine-gloss-01'],
+  'story-deconstructed': ['hydrating-tint-01', 'vinyl-stain-01', 'precision-liner-01'],
+  'shop-lip': ['velvet-matte-01', 'cloud-mousse-01', 'vinyl-stain-01', 'high-shine-gloss-01'],
+  'shop-skincare': ['recovery-balm-01', 'daily-serum-01', 'night-renew-serum-02', 'barrier-cream-02'],
+};
+
 let orders = new Map();
 let events = [];
 let products = new Map(defaultProducts.map((product) => [product.id, product]));
 let users = new Map();
-let featuredBySection = new Map([
-  ['story-aurevia', ['velvet-matte-01', 'high-shine-gloss-01', 'hydrating-tint-01']],
-  ['story-deconstructed', ['hydrating-tint-01', 'satin-color-01', 'precision-liner-01']],
-  ['shop-lip', ['velvet-matte-01', 'high-shine-gloss-01', 'satin-color-01']],
-  ['shop-skincare', ['recovery-balm-01', 'daily-serum-01', 'moisturizer-01']],
-]);
+let featuredBySection = new Map(Object.entries(defaultFeaturedBySection));
+
+function mergeDefaultCatalogData() {
+  let changed = false;
+
+  for (const product of defaultProducts) {
+    if (!products.has(product.id)) {
+      products.set(product.id, product);
+      changed = true;
+    }
+  }
+
+  for (const [sectionKey, productIds] of Object.entries(defaultFeaturedBySection)) {
+    if (!featuredBySection.has(sectionKey)) {
+      featuredBySection.set(sectionKey, [...productIds]);
+      changed = true;
+    }
+  }
+
+  return changed;
+}
 
 function toMap(entries = []) {
   return new Map(
@@ -85,6 +107,10 @@ function loadPersistedState() {
         .map(([sectionKey, productIds]) => [sectionKey, Array.isArray(productIds) ? productIds : []])
     );
 
+    if (mergeDefaultCatalogData()) {
+      persistState();
+    }
+
     return true;
   } catch {
     return false;
@@ -92,6 +118,7 @@ function loadPersistedState() {
 }
 
 if (!loadPersistedState()) {
+  mergeDefaultCatalogData();
   persistState();
 }
 

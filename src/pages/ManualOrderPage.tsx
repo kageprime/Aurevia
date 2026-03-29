@@ -86,7 +86,7 @@ export function ManualOrderPage() {
 
   if (!order) {
     return (
-      <section className="relative overflow-hidden bg-[#F6F6F2] z-[70] pt-[168px] pb-20 px-6 lg:px-12 min-h-[70vh]">
+      <section className="relative overflow-hidden bg-[#F6F6F2] z-[70] pt-12 lg:pt-14 pb-20 px-6 lg:px-12 min-h-[70vh]">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-[rgba(255,45,143,0.08)] blur-3xl" />
           <div className="absolute bottom-0 left-8 h-64 w-64 rounded-full bg-[rgba(11,11,13,0.05)] blur-3xl" />
@@ -103,7 +103,7 @@ export function ManualOrderPage() {
   }
 
   return (
-    <section className="relative overflow-hidden bg-[#F6F6F2] z-[70] pt-[168px] pb-20 px-6 lg:px-12 min-h-[70vh]">
+    <section className="relative overflow-hidden bg-[#F6F6F2] z-[70] pt-12 lg:pt-14 pb-20 px-6 lg:px-12 min-h-[70vh]">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-[rgba(255,45,143,0.08)] blur-3xl" />
         <div className="absolute bottom-0 left-8 h-64 w-64 rounded-full bg-[rgba(11,11,13,0.05)] blur-3xl" />

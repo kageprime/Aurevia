@@ -8,10 +8,10 @@ import { defaultProducts } from './productsSeed.js';
 import * as memoryStore from './store.js';
 
 const defaultFeaturedBySection = {
-  'story-aurevia': ['velvet-matte-01', 'high-shine-gloss-01', 'hydrating-tint-01'],
-  'story-deconstructed': ['hydrating-tint-01', 'satin-color-01', 'precision-liner-01'],
-  'shop-lip': ['velvet-matte-01', 'high-shine-gloss-01', 'satin-color-01'],
-  'shop-skincare': ['recovery-balm-01', 'daily-serum-01', 'moisturizer-01'],
+  'story-aurevia': ['velvet-matte-01', 'cloud-mousse-01', 'high-shine-gloss-01'],
+  'story-deconstructed': ['hydrating-tint-01', 'vinyl-stain-01', 'precision-liner-01'],
+  'shop-lip': ['velvet-matte-01', 'cloud-mousse-01', 'vinyl-stain-01', 'high-shine-gloss-01'],
+  'shop-skincare': ['recovery-balm-01', 'daily-serum-01', 'night-renew-serum-02', 'barrier-cream-02'],
 };
 
 let activeStore = null;
@@ -91,36 +91,32 @@ async function runSchemaMigrations(pool) {
 }
 
 async function seedDefaults(pool) {
-  const existingProducts = await pool.query('SELECT COUNT(*)::int AS count FROM products');
-  if (existingProducts.rows[0]?.count === 0) {
-    for (const product of defaultProducts) {
-      await pool.query(
-        `INSERT INTO products (id, name, price, category, subcategory, image, description, is_active, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [
-          product.id,
-          product.name,
-          product.price,
-          product.category,
-          product.subcategory,
-          product.image,
-          product.description,
-          product.isActive !== false,
-          product.createdAt ?? new Date().toISOString(),
-        ]
-      );
-    }
+  for (const product of defaultProducts) {
+    await pool.query(
+      `INSERT INTO products (id, name, price, category, subcategory, image, description, is_active, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        product.id,
+        product.name,
+        product.price,
+        product.category,
+        product.subcategory,
+        product.image,
+        product.description,
+        product.isActive !== false,
+        product.createdAt ?? new Date().toISOString(),
+      ]
+    );
   }
 
-  const existingFeatured = await pool.query('SELECT COUNT(*)::int AS count FROM featured_sections');
-  if (existingFeatured.rows[0]?.count === 0) {
-    for (const [sectionKey, productIds] of Object.entries(defaultFeaturedBySection)) {
-      await pool.query(
-        `INSERT INTO featured_sections (section_key, product_ids, updated_at)
-         VALUES ($1, $2::jsonb, NOW())`,
-        [sectionKey, JSON.stringify(productIds)]
-      );
-    }
+  for (const [sectionKey, productIds] of Object.entries(defaultFeaturedBySection)) {
+    await pool.query(
+      `INSERT INTO featured_sections (section_key, product_ids, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (section_key) DO NOTHING`,
+      [sectionKey, JSON.stringify(productIds)]
+    );
   }
 }
 

@@ -8,6 +8,7 @@ import { ShopPage } from '@/pages/ShopPage';
 import { ProductPage } from '@/pages/ProductPage';
 import { ManualOrderPage } from '@/pages/ManualOrderPage';
 import { CardCheckoutPage } from './pages/CardCheckoutPage';
+import { HelpTopicPage } from './pages/HelpTopicPage';
 import { UserAuthPage } from '@/pages/account/UserAuthPage';
 import { UserSignUpPage } from '@/pages/account/UserSignUpPage';
 import { UserProfilePage } from '@/pages/account/UserProfilePage';
@@ -148,6 +149,7 @@ function App() {
           <Route path="/story" element={<StoryPage onAddToCart={handleAddToCart} />} />
           <Route path="/shop" element={<ShopPage onAddToCart={handleAddToCart} />} />
           <Route path="/product/:productId" element={<ProductPage onAddToCart={handleAddToCart} />} />
+          <Route path="/help/:topic" element={<HelpTopicPage />} />
           <Route path="/account/login/*" element={<UserAuthPage />} />
           <Route path="/account/register/*" element={<UserSignUpPage />} />
           <Route path="/account/profile/*" element={<UserProfilePage />} />

@@ -141,10 +141,10 @@ export function Footer({ disableReveal = false }: FooterProps) {
               Help
             </h4>
             <ul className="space-y-2">
-              <li><a href="mailto:support@aurevia.com?subject=Shipping%20Question" className="text-sm accent-hover-text">Shipping</a></li>
-              <li><a href="mailto:support@aurevia.com?subject=Returns%20Question" className="text-sm accent-hover-text">Returns</a></li>
-              <li><Link to="/story" className="text-sm accent-hover-text">FAQ</Link></li>
-              <li><a href="mailto:support@aurevia.com" className="text-sm accent-hover-text">Contact</a></li>
+              <li><Link to="/help/shipping" className="text-sm accent-hover-text">Shipping</Link></li>
+              <li><Link to="/help/returns" className="text-sm accent-hover-text">Returns</Link></li>
+              <li><Link to="/help/faq" className="text-sm accent-hover-text">FAQ</Link></li>
+              <li><Link to="/help/contact" className="text-sm accent-hover-text">Contact</Link></li>
             </ul>
           </div>
 

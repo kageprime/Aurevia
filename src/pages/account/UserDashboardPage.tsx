@@ -57,7 +57,7 @@ export function UserDashboardPage() {
 
   if (!isLoaded) {
     return (
-      <section className="relative bg-[#F6F6F2] z-[70] py-24 px-6 lg:px-12 min-h-[70vh]">
+      <section className="relative bg-[#F6F6F2] z-[70] pt-12 lg:pt-14 pb-20 px-6 lg:px-12 min-h-[70vh]">
         <p className="text-[#6E6E73]">Loading your dashboard...</p>
       </section>
     );
@@ -69,7 +69,7 @@ export function UserDashboardPage() {
   };
 
   return (
-    <section className="relative bg-[#F6F6F2] z-[70] py-24 px-6 lg:px-12 min-h-[70vh]">
+    <section className="relative bg-[#F6F6F2] z-[70] pt-12 lg:pt-14 pb-20 px-6 lg:px-12 min-h-[70vh]">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="bg-white border border-[#0B0B0D]/10 p-6 flex items-start justify-between gap-4">
           <div>
