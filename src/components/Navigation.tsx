@@ -81,7 +81,7 @@ export function Navigation({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className={`flex items-center gap-2 border border-[#0B0B0D]/10 bg-white/70 hover:bg-white transition-colors ${compact ? 'px-3 py-2 text-sm' : 'px-3 py-2 text-xs'}`}
+            className={`flex items-center gap-2 rounded-none border border-[#0B0B0D]/10 bg-[#F6F6F2] hover:bg-[#ECECE6] transition-colors ${compact ? 'px-4 py-2.5 text-base' : 'px-3 py-2 text-xs'}`}
             aria-label={`Accent color ${currentAccent.label}`}
           >
             <span
@@ -124,7 +124,7 @@ export function Navigation({
               <img
                 src="/aurevia-logo.png"
                 alt="Aurevia logo"
-                className="h-[86px] w-auto"
+                className="h-[66px] w-auto sm:h-[72px]"
                 onError={() => setLogoFailed(true)}
               />
             ) : (
@@ -203,30 +203,36 @@ export function Navigation({
         </Sheet>
 
         {mobileMenuOpen && (
-          <div className="md:hidden bg-[#F6F6F2] border-t border-[#0B0B0D]/10 px-6 py-4">
-            <div className="flex flex-col gap-4">
-              <button onClick={() => navigateTo('/')} className="text-left text-sm font-medium">Home</button>
-              <button onClick={() => navigateTo('/shop', 'shop-lip')} className="text-left text-sm font-medium">Shop</button>
-              <button onClick={() => navigateTo('/story', 'beauty-section')} className="text-left text-sm font-medium">Story</button>
-              <button onClick={() => navigateTo('/shop', 'shop-skincare')} className="text-left text-sm font-medium">Care</button>
-              <button onClick={() => navigateTo(accountPath)} className="text-left text-sm font-medium">Account</button>
-              <button onClick={openCart} className="text-left text-sm font-medium flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4" />
-                Cart ({itemCount})
-              </button>
+          <div className="md:hidden border-t border-[#0B0B0D]/10 bg-[#F6F6F2]/95 px-4 pb-6 pt-5 backdrop-blur-sm">
+            <div className="mx-auto w-full max-w-md rounded-[28px] border border-[#0B0B0D]/10 bg-[linear-gradient(180deg,#F6F6F2_0%,#F2F2ED_100%)] px-6 py-7 shadow-[0_20px_44px_-30px_rgba(11,11,13,0.85)]">
+              <div className="flex flex-col items-center text-center">
+                <div className="flex w-full flex-col items-center gap-4">
+                  <button onClick={() => navigateTo('/')} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Home</button>
+                  <button onClick={() => navigateTo('/shop', 'shop-lip')} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Shop</button>
+                  <button onClick={() => navigateTo('/story', 'beauty-section')} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Story</button>
+                  <button onClick={() => navigateTo('/shop', 'shop-skincare')} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Care</button>
+                  <button onClick={() => navigateTo(accountPath)} className="text-[2rem] leading-none font-medium tracking-[-0.02em] accent-hover-text">Account</button>
+                  <button onClick={openCart} className="mt-1 flex items-center justify-center gap-2 text-xl font-medium accent-hover-text">
+                    <ShoppingBag className="h-5 w-5" />
+                    Cart ({itemCount})
+                  </button>
+                </div>
 
-              <div className="pt-2 border-t border-[#0B0B0D]/10">
-                <p className="text-xs uppercase tracking-mono text-[#6E6E73] mb-2">Accent</p>
-                <AccentPicker compact />
-              </div>
+                <div className="mt-7 w-full border-t border-[#0B0B0D]/10 pt-5">
+                  <p className="mb-3 text-xs uppercase tracking-[0.32em] text-[#6E6E73]">Accent</p>
+                  <div className="flex justify-center">
+                    <AccentPicker compact />
+                  </div>
+                </div>
 
-              <div className="pt-2 border-t border-[#0B0B0D]/10 grid gap-2">
-                <button onClick={handleCardCheckoutClick} className="text-left text-sm font-medium accent-hover-text">
-                  Pay with Card
-                </button>
-                <button onClick={handleCheckoutClick} className="text-left text-sm font-medium accent-hover-text">
-                  Proceed to Bank Transfer
-                </button>
+                <div className="mt-6 grid w-full gap-3 border-t border-[#0B0B0D]/10 pt-5">
+                  <button onClick={handleCardCheckoutClick} className="text-center text-base font-medium accent-hover-text">
+                    Pay with Card
+                  </button>
+                  <button onClick={handleCheckoutClick} className="text-center text-base font-medium accent-hover-text">
+                    Proceed to Bank Transfer
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -142,7 +142,7 @@ function App() {
         onPayWithCard={handleCardCheckout}
       />
 
-      <main className="relative flex-1">
+      <main className="relative flex-1 pt-[96px] sm:pt-[108px]">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/story" element={<StoryPage onAddToCart={handleAddToCart} />} />
