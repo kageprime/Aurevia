@@ -538,6 +538,8 @@ async function userAuthMiddleware(req, res, next) {
 async function authMiddleware(req, res, next) {
   const hasApiKey = Boolean(config.apiKey);
   const adminEmail = config.adminEmail.trim().toLowerCase();
+  const providedApiKey = req.headers['x-api-key'];
+  const hasValidApiKey = hasApiKey && providedApiKey === config.apiKey;
 
   if (!hasApiKey && !adminEmail) {
     return next();
@@ -549,13 +551,28 @@ async function authMiddleware(req, res, next) {
       req.admin = { email: user.email };
       return next();
     }
+
+    if (hasValidApiKey) {
+      return next();
+    }
+
+    return res.status(403).json({
+      ok: false,
+      error: 'Signed in but not authorized for admin access. Use the ADMIN_EMAIL account.',
+      code: 'ADMIN_ALLOWLIST_FORBIDDEN',
+      signedInEmail: user.email,
+    });
   }
 
-  const provided = req.headers['x-api-key'];
-  if (hasApiKey && provided === config.apiKey) {
+  if (hasValidApiKey) {
     return next();
   }
-  return res.status(401).json({ ok: false, error: 'Unauthorized' });
+
+  return res.status(401).json({
+    ok: false,
+    error: 'Please sign in with the admin Clerk account or provide a valid API key.',
+    code: 'ADMIN_AUTH_REQUIRED',
+  });
 }
 
 const adminLoginSchema = z.object({
