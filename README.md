@@ -36,6 +36,15 @@ If the login UI shows "Development mode", your frontend is still using a test Cl
 4. In your backend host (Railway/Render/etc), set `CLERK_SECRET_KEY` to a `sk_live_...` key from the same Clerk instance.
 5. Redeploy frontend and backend, then verify sign-in on `/account/login`.
 
+### Auth troubleshooting
+
+- `Cookie "__clerk_test_etld" has been rejected for invalid domain`:
+	Your frontend is still using a test Clerk key (`pk_test_...`) on a deployed domain. Switch to a live key (`pk_live_...`) and redeploy.
+- `GET /api/admin/me` returns `401` after sign-in:
+	1. Confirm frontend and backend Clerk keys are from the same Clerk instance (live/live or test/test).
+	2. Confirm the signed-in email matches `ADMIN_EMAIL` on the backend.
+	3. Confirm `FRONTEND_ORIGIN` includes your deployed frontend origin (with and without `www` if needed).
+
 ## Local development
 
 - Frontend: `npm run dev`
