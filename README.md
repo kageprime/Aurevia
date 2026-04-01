@@ -59,6 +59,10 @@ If the login UI shows "Development mode", your frontend is still using a test Cl
 - Backend: `npm run dev:backend`
 - Both together: `npm run dev:all`
 
+## Client handoff document
+
+- Full client handoff guide (PDF-ready Markdown): [docs/CLIENT_HANDOFF.md](docs/CLIENT_HANDOFF.md)
+
 ## Notes
 
 - The admin panel uses `ADMIN_EMAIL` as an allowlist check.

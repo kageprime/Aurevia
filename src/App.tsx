@@ -179,7 +179,7 @@ function App() {
       <>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/admin/login" element={<AdminLoginPage />} />
+            <Route path="/admin/login/*" element={<AdminLoginPage />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/orders" replace />} />
               <Route path="orders" element={<AdminOrdersPage />} />
