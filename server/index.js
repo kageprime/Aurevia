@@ -37,6 +37,17 @@ const authCookieOptions = {
 };
 const CSRF_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+const ADMIN_ROLE_PERMISSIONS = {
+  owner: ['*'],
+  manager: ['orders.read', 'orders.write', 'products.read', 'products.write', 'featured.write', 'events.read', 'events.write', 'settings.read'],
+  support: ['orders.read', 'orders.write', 'events.read'],
+  merchandiser: ['products.read', 'products.write', 'featured.write', 'events.read'],
+  analyst: ['orders.read', 'products.read', 'events.read', 'settings.read'],
+  viewer: ['orders.read', 'products.read', 'events.read'],
+};
+
+const VALID_ADMIN_ROLES = new Set(Object.keys(ADMIN_ROLE_PERMISSIONS));
+
 function normalizeOrigin(origin) {
   try {
     return new URL(origin).origin;
@@ -171,6 +182,140 @@ function parseBooleanInput(value) {
   }
 
   return undefined;
+}
+
+function parsePositiveInt(value, fallback, min = 1, max = Number.MAX_SAFE_INTEGER) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  const rounded = Math.floor(parsed);
+  if (rounded < min) {
+    return min;
+  }
+
+  if (rounded > max) {
+    return max;
+  }
+
+  return rounded;
+}
+
+function normalizeAdminRole(role) {
+  const normalized = String(role ?? '').trim().toLowerCase();
+  return VALID_ADMIN_ROLES.has(normalized) ? normalized : 'viewer';
+}
+
+function getAdminRoleByEmail(email = '') {
+  const normalizedEmail = String(email ?? '').trim().toLowerCase();
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const bindingRole = config.adminRoleBindings[normalizedEmail];
+  if (bindingRole) {
+    return normalizeAdminRole(bindingRole);
+  }
+
+  if (config.adminEmail && normalizedEmail === config.adminEmail.trim().toLowerCase()) {
+    return 'owner';
+  }
+
+  return null;
+}
+
+function buildAdminContext({ email = '', source = 'session' } = {}) {
+  const normalizedEmail = String(email ?? '').trim().toLowerCase();
+  const role = source === 'api_key' ? 'owner' : (getAdminRoleByEmail(normalizedEmail) ?? 'viewer');
+  const permissions = ADMIN_ROLE_PERMISSIONS[role] ?? ADMIN_ROLE_PERMISSIONS.viewer;
+
+  return {
+    email: normalizedEmail || 'api-key-admin',
+    role,
+    permissions,
+    source,
+  };
+}
+
+function hasPermission(admin, permission) {
+  if (!admin || !Array.isArray(admin.permissions)) {
+    return false;
+  }
+
+  return admin.permissions.includes('*') || admin.permissions.includes(permission);
+}
+
+function requireAdminPermission(permission) {
+  return (req, res, next) => {
+    if (!hasPermission(req.admin, permission)) {
+      return res.status(403).json({
+        ok: false,
+        error: `Forbidden. Missing permission: ${permission}`,
+        code: 'ADMIN_PERMISSION_FORBIDDEN',
+      });
+    }
+
+    return next();
+  };
+}
+
+function extractUploadFilename(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(value);
+    const marker = '/api/uploads/';
+    const index = parsed.pathname.indexOf(marker);
+    if (index === -1) {
+      return '';
+    }
+    const filename = parsed.pathname.slice(index + marker.length).trim();
+    const safe = path.basename(filename);
+    return safe === filename ? safe : '';
+  } catch {
+    const marker = '/api/uploads/';
+    const index = value.indexOf(marker);
+    if (index === -1) {
+      return '';
+    }
+    const filename = value.slice(index + marker.length).split(/[?#]/)[0].trim();
+    const safe = path.basename(filename);
+    return safe === filename ? safe : '';
+  }
+}
+
+async function removeOrphanedUploadFile(filename) {
+  const safeName = path.basename(String(filename ?? '').trim());
+  if (!safeName) {
+    return false;
+  }
+
+  const suffix = `/api/uploads/${safeName}`;
+  const [products, orders] = await Promise.all([
+    store.listProducts({ includeInactive: true }),
+    store.listOrders(),
+  ]);
+
+  const stillUsedByProduct = products.some((product) => String(product.image ?? '').endsWith(suffix));
+  const stillUsedByReceipt = orders.some((order) => String(order.receiptUrl ?? '').endsWith(suffix));
+  if (stillUsedByProduct || stillUsedByReceipt) {
+    return false;
+  }
+
+  const filePath = path.join(uploadsDir, safeName);
+  if (!fs.existsSync(filePath)) {
+    return false;
+  }
+
+  try {
+    fs.unlinkSync(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function setSessionCookies(res, kind, accessToken, refreshToken) {
@@ -436,11 +581,13 @@ function issueAdminSession({ email }) {
 
   const accessSession = {
     email,
+    role: getAdminRoleByEmail(email) ?? 'owner',
     createdAt: now,
     expiresAt: now + config.adminSessionTtlMs,
   };
   const refreshSession = {
     email,
+    role: getAdminRoleByEmail(email) ?? 'owner',
     createdAt: now,
     expiresAt: now + config.adminRefreshTtlMs,
   };
@@ -582,21 +729,31 @@ async function userAuthMiddleware(req, res, next) {
 async function authMiddleware(req, res, next) {
   const hasApiKey = Boolean(config.apiKey);
   const adminEmail = config.adminEmail.trim().toLowerCase();
+  const hasRoleBindings = Object.keys(config.adminRoleBindings).length > 0;
   const providedApiKey = req.headers['x-api-key'];
   const hasValidApiKey = hasApiKey && providedApiKey === config.apiKey;
+  const adminSession = getAdminSession(req);
 
-  if (!hasApiKey && !adminEmail) {
+  if (!hasApiKey && !adminEmail && !hasRoleBindings) {
+    req.admin = buildAdminContext({ email: 'open-admin@local', source: 'open' });
+    return next();
+  }
+
+  if (adminSession?.email) {
+    req.admin = buildAdminContext({ email: adminSession.email, source: 'session' });
     return next();
   }
 
   const user = await getClerkUserContext(req);
   if (user) {
-    if (!adminEmail || user.email.toLowerCase() === adminEmail) {
-      req.admin = { email: user.email };
+    const role = getAdminRoleByEmail(user.email);
+    if (role) {
+      req.admin = buildAdminContext({ email: user.email, source: 'clerk' });
       return next();
     }
 
     if (hasValidApiKey) {
+      req.admin = buildAdminContext({ email: user.email, source: 'api_key' });
       return next();
     }
 
@@ -609,6 +766,7 @@ async function authMiddleware(req, res, next) {
   }
 
   if (hasValidApiKey) {
+    req.admin = buildAdminContext({ source: 'api_key' });
     return next();
   }
 
@@ -920,7 +1078,8 @@ app.post('/api/admin/login', (req, res) => {
   }
 
   const { email, password } = parsed.data;
-  if (email !== config.adminEmail || password !== config.adminPassword) {
+  const adminRole = getAdminRoleByEmail(email);
+  if (!adminRole || password !== config.adminPassword) {
     recordFailure(rateLimitKeys);
     return res.status(401).json({ ok: false, error: 'Invalid admin credentials.' });
   }
@@ -940,7 +1099,7 @@ app.post('/api/admin/login', (req, res) => {
     ok: true,
     token: session.accessToken,
     refreshToken: session.refreshToken,
-    admin: { email },
+    admin: buildAdminContext({ email, source: 'session' }),
     expiresInMs: session.expiresInMs,
     refreshExpiresInMs: session.refreshExpiresInMs,
   });
@@ -999,11 +1158,11 @@ app.post('/api/admin/logout', (req, res) => {
 app.get('/api/admin/me', authMiddleware, (req, res) => {
   return res.json({
     ok: true,
-    admin: req.admin ?? { email: 'api-key-admin' },
+    admin: req.admin ?? buildAdminContext({ source: 'api_key' }),
   });
 });
 
-app.get('/api/orders', authMiddleware, async (_req, res) => {
+app.get('/api/orders', authMiddleware, requireAdminPermission('orders.read'), async (_req, res) => {
   res.json({ ok: true, orders: await store.listOrders() });
 });
 
@@ -1028,8 +1187,59 @@ app.get('/api/orders/:orderId', async (req, res) => {
   return res.json({ ok: true, order });
 });
 
-app.get('/api/events', authMiddleware, async (_req, res) => {
+app.get('/api/events', authMiddleware, requireAdminPermission('events.read'), async (_req, res) => {
   res.json({ ok: true, events: await store.listEvents() });
+});
+
+app.get('/api/admin/products', authMiddleware, requireAdminPermission('products.read'), async (req, res) => {
+  const category = typeof req.query.category === 'string' ? req.query.category : undefined;
+  const includeInactive = req.query.includeInactive === 'true';
+  const search = typeof req.query.search === 'string' ? req.query.search.trim().toLowerCase() : '';
+  const status = typeof req.query.status === 'string' ? req.query.status.trim().toLowerCase() : 'all';
+  const page = parsePositiveInt(req.query.page, 1, 1, 100000);
+  const pageSize = parsePositiveInt(req.query.pageSize, 20, 1, 100);
+
+  const allProducts = await store.listProducts({
+    category,
+    includeInactive: includeInactive || status !== 'active',
+  });
+
+  const filtered = allProducts.filter((product) => {
+    const normalizedName = String(product.name ?? '').toLowerCase();
+    const normalizedSubcategory = String(product.subcategory ?? '').toLowerCase();
+    const normalizedDescription = String(product.description ?? '').toLowerCase();
+    const normalizedId = String(product.id ?? '').toLowerCase();
+    const isActive = product.isActive !== false;
+
+    const matchesSearch = !search
+      || normalizedName.includes(search)
+      || normalizedSubcategory.includes(search)
+      || normalizedDescription.includes(search)
+      || normalizedId.includes(search);
+
+    const matchesStatus = status === 'all'
+      || (status === 'active' && isActive)
+      || (status === 'inactive' && !isActive);
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const products = filtered.slice(startIndex, startIndex + pageSize);
+
+  return res.json({
+    ok: true,
+    products,
+    total,
+    page: currentPage,
+    pageSize,
+    totalPages,
+    hasNextPage: currentPage < totalPages,
+    hasPreviousPage: currentPage > 1,
+  });
 });
 
 app.get('/api/products', async (req, res) => {
@@ -1066,7 +1276,7 @@ app.get('/api/featured-products', async (req, res) => {
   });
 });
 
-app.put('/api/admin/featured-products/:sectionKey', authMiddleware, async (req, res) => {
+app.put('/api/admin/featured-products/:sectionKey', authMiddleware, requireAdminPermission('featured.write'), async (req, res) => {
   const parsedSection = featuredSectionSchema.safeParse(req.params.sectionKey);
   if (!parsedSection.success) {
     return res.status(400).json({ ok: false, error: 'Invalid featured section key.' });
@@ -1110,7 +1320,7 @@ app.put('/api/admin/featured-products/:sectionKey', authMiddleware, async (req, 
   });
 });
 
-app.post('/api/admin/products', authMiddleware, productImageUpload.single('image'), async (req, res) => {
+app.post('/api/admin/products', authMiddleware, requireAdminPermission('products.write'), productImageUpload.single('image'), async (req, res) => {
   const uploadedImageUrl = req.file ? `${req.protocol}://${req.get('host')}/api/uploads/${req.file.filename}` : '';
   const rawPrice = typeof req.body?.price === 'number' ? req.body.price : Number(req.body?.price);
   const rawStockInput = req.body?.stockQuantity;
@@ -1151,7 +1361,7 @@ app.post('/api/admin/products', authMiddleware, productImageUpload.single('image
   return res.status(201).json({ ok: true, product });
 });
 
-app.post('/api/admin/products/:productId/image', authMiddleware, productImageUpload.single('image'), async (req, res) => {
+app.post('/api/admin/products/:productId/image', authMiddleware, requireAdminPermission('products.write'), productImageUpload.single('image'), async (req, res) => {
   const { productId } = req.params;
   const existing = await store.getProduct(productId);
   if (!existing) {
@@ -1162,8 +1372,14 @@ app.post('/api/admin/products/:productId/image', authMiddleware, productImageUpl
     return res.status(400).json({ ok: false, error: 'Product image file is required.' });
   }
 
+  const previousFilename = extractUploadFilename(existing.image);
   const image = `${req.protocol}://${req.get('host')}/api/uploads/${req.file.filename}`;
   const product = await store.updateProduct(productId, { image });
+  const nextFilename = extractUploadFilename(image);
+
+  if (previousFilename && previousFilename !== nextFilename) {
+    await removeOrphanedUploadFile(previousFilename);
+  }
 
   await store.pushEvent({
     type: 'product.image_updated',
@@ -1174,7 +1390,7 @@ app.post('/api/admin/products/:productId/image', authMiddleware, productImageUpl
   return res.json({ ok: true, product });
 });
 
-app.patch('/api/admin/products/:productId', authMiddleware, async (req, res) => {
+app.patch('/api/admin/products/:productId', authMiddleware, requireAdminPermission('products.write'), async (req, res) => {
   const parsed = productSchema.partial().safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, error: parsed.error.flatten() });
@@ -1197,14 +1413,20 @@ app.patch('/api/admin/products/:productId', authMiddleware, async (req, res) => 
   return res.json({ ok: true, product });
 });
 
-app.delete('/api/admin/products/:productId', authMiddleware, async (req, res) => {
+app.delete('/api/admin/products/:productId', authMiddleware, requireAdminPermission('products.write'), async (req, res) => {
   const { productId } = req.params;
   const existing = await store.getProduct(productId);
   if (!existing) {
     return res.status(404).json({ ok: false, error: 'Product not found' });
   }
 
+  const previousFilename = extractUploadFilename(existing.image);
+
   await store.deleteProduct(productId);
+
+  if (previousFilename) {
+    await removeOrphanedUploadFile(previousFilename);
+  }
 
   await store.pushEvent({
     type: 'product.deleted',
@@ -1437,7 +1659,7 @@ app.get('/api/uploads/:filename', async (req, res) => {
   return res.sendFile(receiptPath);
 });
 
-app.post('/api/events', authMiddleware, async (req, res) => {
+app.post('/api/events', authMiddleware, requireAdminPermission('events.write'), async (req, res) => {
   const parsed = eventSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, error: parsed.error.flatten() });
@@ -1461,7 +1683,7 @@ app.post('/api/events', authMiddleware, async (req, res) => {
   return res.status(201).json({ ok: true, event, whatsappDispatch: dispatch });
 });
 
-app.post('/api/orders/:orderId/status', authMiddleware, async (req, res) => {
+app.post('/api/orders/:orderId/status', authMiddleware, requireAdminPermission('orders.write'), async (req, res) => {
   const parsed = updateStatusSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, error: parsed.error.flatten() });

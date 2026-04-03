@@ -5,12 +5,13 @@ import { useAuth } from '@clerk/clerk-react';
 import {
   createAdminProductWithImage,
   deleteAdminProduct,
+  listAdminProductsPage,
   listFeaturedProducts,
-  listProducts,
   replaceAdminProductImage,
   updateAdminFeaturedProducts,
   updateAdminProduct,
 } from '@/lib/productsApi';
+import { getAdminIdentity, type AdminIdentity } from '@/lib/adminApi';
 
 type ProductFormState = {
   name: string;
@@ -46,7 +47,7 @@ const featuredSections: Array<{ key: FeaturedSectionKey; title: string; category
   { key: 'shop-skincare', title: 'Shop · Skincare', category: 'skincare' },
 ];
 
-const catalogPageSize = 12;
+const catalogPageSize = 20;
 
 function toStockQuantity(value: number | undefined) {
   if (!Number.isFinite(value) || (value ?? 0) < 0) {
@@ -72,6 +73,7 @@ function stockLabel(stockQuantity: number | undefined) {
 export function AdminProductsPage() {
   const { getToken } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [adminIdentity, setAdminIdentity] = useState<AdminIdentity | null>(null);
   const [featuredBySection, setFeaturedBySection] = useState<FeaturedProductsBySection>({
     'story-aurevia': [],
     'story-deconstructed': [],
@@ -92,51 +94,67 @@ export function AdminProductsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | Product['category']>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [bulkStockInput, setBulkStockInput] = useState('0');
   const [catalogPage, setCatalogPage] = useState(1);
+  const [catalogTotal, setCatalogTotal] = useState(0);
+  const [catalogTotalPages, setCatalogTotalPages] = useState(1);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [savingSection, setSavingSection] = useState<FeaturedSectionKey | null>(null);
+
+  const canWriteProducts = Boolean(
+    adminIdentity?.permissions?.includes('*')
+      || adminIdentity?.permissions?.includes('products.write')
+  );
+
+  const canWriteFeatured = Boolean(
+    adminIdentity?.permissions?.includes('*')
+      || adminIdentity?.permissions?.includes('featured.write')
+  );
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => a.name.localeCompare(b.name));
   }, [products]);
 
-  const filteredProducts = useMemo(() => {
-    const normalizedSearch = searchQuery.trim().toLowerCase();
-
-    return sortedProducts.filter((product) => {
-      const matchesSearch = normalizedSearch.length === 0
-        || product.name.toLowerCase().includes(normalizedSearch)
-        || product.subcategory.toLowerCase().includes(normalizedSearch)
-        || product.description.toLowerCase().includes(normalizedSearch)
-        || product.id.toLowerCase().includes(normalizedSearch);
-
-      const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
-      const isActive = product.isActive !== false;
-      const matchesStatus = statusFilter === 'all'
-        || (statusFilter === 'active' && isActive)
-        || (statusFilter === 'inactive' && !isActive);
-
-      return matchesSearch && matchesCategory && matchesStatus;
-    });
-  }, [categoryFilter, searchQuery, sortedProducts, statusFilter]);
-
-  const catalogTotalPages = Math.max(1, Math.ceil(filteredProducts.length / catalogPageSize));
-
-  const paginatedProducts = useMemo(() => {
-    const start = (catalogPage - 1) * catalogPageSize;
-    return filteredProducts.slice(start, start + catalogPageSize);
-  }, [catalogPage, filteredProducts]);
+  const paginatedProducts = sortedProducts;
 
   const loadProducts = async () => {
     setIsLoadingProducts(true);
     try {
-      const [allProducts, featured] = await Promise.all([
-        listProducts(undefined, true),
+      const [identity, pageResult, featured] = await Promise.all([
+        getAdminIdentity(getToken),
+        listAdminProductsPage({
+          category: categoryFilter === 'all' ? undefined : categoryFilter,
+          status: statusFilter,
+          search: searchQuery,
+          includeInactive: true,
+          page: catalogPage,
+          pageSize: catalogPageSize,
+        }, getToken),
         listFeaturedProducts(),
       ]);
 
-      setProducts(allProducts);
+      setAdminIdentity(identity);
+      setProducts(pageResult.products);
+      setCatalogTotal(pageResult.total);
+      setCatalogTotalPages(pageResult.totalPages);
+      setCatalogPage(pageResult.page);
       setFeaturedBySection(featured);
+      setSelectedProductIds((current) => {
+        if (current.size === 0) {
+          return current;
+        }
+
+        const visibleIds = new Set(pageResult.products.map((item) => item.id));
+        const next = new Set<string>();
+        for (const id of current) {
+          if (visibleIds.has(id)) {
+            next.add(id);
+          }
+        }
+        return next;
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not load products.';
       toast.error(message);
@@ -147,15 +165,11 @@ export function AdminProductsPage() {
 
   useEffect(() => {
     loadProducts();
-  }, []);
+  }, [catalogPage, categoryFilter, searchQuery, statusFilter]);
 
   useEffect(() => {
     setCatalogPage(1);
   }, [searchQuery, categoryFilter, statusFilter]);
-
-  useEffect(() => {
-    setCatalogPage((current) => (current > catalogTotalPages ? catalogTotalPages : current));
-  }, [catalogTotalPages]);
 
   useEffect(() => {
     if (!createImageFile) {
@@ -173,6 +187,11 @@ export function AdminProductsPage() {
 
   const handleCreateProduct = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (!canWriteProducts) {
+      toast.error('Your role does not allow product write operations.');
+      return;
+    }
 
     if (!createImageFile) {
       toast.error('Please choose an image file before creating the product.');
@@ -204,11 +223,13 @@ export function AdminProductsPage() {
         isActive: true,
       }, createImageFile, getToken);
 
-      setProducts((current) => [...current, created]);
+      setProducts((current) => [created, ...current]);
+      setCatalogTotal((current) => current + 1);
       setForm(defaultProductForm);
       setCreateImageFile(null);
       setCreateImageInputKey((current) => current + 1);
       toast.success('Product created successfully.');
+      await loadProducts();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not create product.';
       toast.error(message);
@@ -218,6 +239,11 @@ export function AdminProductsPage() {
   };
 
   const handleReplaceProductImage = async (product: Product) => {
+    if (!canWriteProducts) {
+      toast.error('Your role does not allow product write operations.');
+      return;
+    }
+
     const file = replaceImageFiles[product.id];
     if (!file) {
       toast.error('Choose an image file before uploading.');
@@ -266,6 +292,11 @@ export function AdminProductsPage() {
   const handleSaveProductEdits = async (event: React.FormEvent, productId: string) => {
     event.preventDefault();
 
+    if (!canWriteProducts) {
+      toast.error('Your role does not allow product write operations.');
+      return;
+    }
+
     const parsedPrice = Number(editForm.price);
     if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
       toast.error('Price must be a valid non-negative number.');
@@ -303,6 +334,11 @@ export function AdminProductsPage() {
   };
 
   const handleToggleProduct = async (product: Product) => {
+    if (!canWriteProducts) {
+      toast.error('Your role does not allow product write operations.');
+      return;
+    }
+
     try {
       const updated = await updateAdminProduct(product.id, {
         isActive: product.isActive === false,
@@ -317,9 +353,20 @@ export function AdminProductsPage() {
   };
 
   const handleDeleteProduct = async (product: Product) => {
+    if (!canWriteProducts) {
+      toast.error('Your role does not allow product write operations.');
+      return;
+    }
+
     try {
       await deleteAdminProduct(product.id, getToken);
       setProducts((current) => current.filter((item) => item.id !== product.id));
+      setCatalogTotal((current) => Math.max(0, current - 1));
+      setSelectedProductIds((current) => {
+        const next = new Set(current);
+        next.delete(product.id);
+        return next;
+      });
       if (editingProductId === product.id) {
         handleCancelEditingProduct();
       }
@@ -331,6 +378,11 @@ export function AdminProductsPage() {
   };
 
   const handleToggleFeaturedProduct = async (sectionKey: FeaturedSectionKey, product: Product) => {
+    if (!canWriteFeatured) {
+      toast.error('Your role does not allow featured catalog updates.');
+      return;
+    }
+
     const currentProducts = featuredBySection[sectionKey] ?? [];
     const isSelected = currentProducts.some((item) => item.id === product.id);
     const nextIds = isSelected
@@ -353,11 +405,111 @@ export function AdminProductsPage() {
     }
   };
 
+  const toggleBulkSelection = (productId: string) => {
+    setSelectedProductIds((current) => {
+      const next = new Set(current);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    const visibleIds = paginatedProducts.map((product) => product.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedProductIds.has(id));
+
+    setSelectedProductIds((current) => {
+      const next = new Set(current);
+      for (const id of visibleIds) {
+        if (allVisibleSelected) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+      }
+      return next;
+    });
+  };
+
+  const runBulkPatch = async (patch: Partial<Product>) => {
+    if (!canWriteProducts) {
+      toast.error('Your role does not allow product write operations.');
+      return;
+    }
+
+    const ids = Array.from(selectedProductIds);
+    if (ids.length === 0) {
+      toast.error('Select at least one product.');
+      return;
+    }
+
+    setIsBulkProcessing(true);
+    try {
+      await Promise.all(ids.map((id) => updateAdminProduct(id, patch, getToken)));
+      toast.success(`Updated ${ids.length} product${ids.length === 1 ? '' : 's'}.`);
+      setSelectedProductIds(new Set());
+      await loadProducts();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Bulk update failed.';
+      toast.error(message);
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!canWriteProducts) {
+      toast.error('Your role does not allow product write operations.');
+      return;
+    }
+
+    const ids = Array.from(selectedProductIds);
+    if (ids.length === 0) {
+      toast.error('Select at least one product.');
+      return;
+    }
+
+    setIsBulkProcessing(true);
+    try {
+      await Promise.all(ids.map((id) => deleteAdminProduct(id, getToken)));
+      toast.success(`Deleted ${ids.length} product${ids.length === 1 ? '' : 's'}.`);
+      setSelectedProductIds(new Set());
+      await loadProducts();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Bulk delete failed.';
+      toast.error(message);
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleBulkSetStock = async () => {
+    const parsedStock = Number(bulkStockInput);
+    if (!Number.isInteger(parsedStock) || parsedStock < 0) {
+      toast.error('Bulk stock value must be a non-negative whole number.');
+      return;
+    }
+
+    await runBulkPatch({ stockQuantity: parsedStock });
+  };
+
   return (
     <section className="space-y-4">
       <h2 className="text-2xl font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
         Products
       </h2>
+
+      {adminIdentity ? (
+        <div className="bg-white border border-[#0B0B0D]/10 p-4">
+          <p className="text-sm text-[#6E6E73]">
+            Signed in as <span className="text-[#0B0B0D] font-medium">{adminIdentity.email}</span>
+            {' '}· role <span className="text-[#0B0B0D] font-medium">{adminIdentity.role}</span>
+          </p>
+        </div>
+      ) : null}
 
       <div className="bg-white border border-[#0B0B0D]/10 p-6">
         <h3 className="text-lg font-semibold mb-4">Create Product</h3>
@@ -469,10 +621,65 @@ export function AdminProductsPage() {
         </div>
 
         <p className="text-sm text-[#6E6E73] mb-3">
-          Showing {paginatedProducts.length} of {filteredProducts.length} filtered product{filteredProducts.length === 1 ? '' : 's'}
+          Showing {paginatedProducts.length} of {catalogTotal} filtered product{catalogTotal === 1 ? '' : 's'}
           {' '}
           (page {catalogPage} of {catalogTotalPages})
         </p>
+
+        <div className="border border-[#0B0B0D]/10 p-3 mb-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={toggleSelectAllVisible}
+              className="btn-pink-outline px-3 py-2 text-sm"
+            >
+              {paginatedProducts.length > 0 && paginatedProducts.every((product) => selectedProductIds.has(product.id))
+                ? 'Clear Visible Selection'
+                : 'Select Visible'}
+            </button>
+            <p className="text-sm text-[#6E6E73]">
+              {selectedProductIds.size} selected
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => void runBulkPatch({ isActive: true })}
+              className="btn-pink-outline px-3 py-2 text-sm"
+              disabled={isBulkProcessing || !canWriteProducts}
+            >
+              Bulk Activate
+            </button>
+            <button
+              onClick={() => void runBulkPatch({ isActive: false })}
+              className="btn-pink-outline px-3 py-2 text-sm"
+              disabled={isBulkProcessing || !canWriteProducts}
+            >
+              Bulk Deactivate
+            </button>
+            <input
+              value={bulkStockInput}
+              type="number"
+              min="0"
+              step="1"
+              onChange={(event) => setBulkStockInput(event.target.value)}
+              className="border border-[#0B0B0D]/20 px-3 py-2 text-sm w-40"
+              placeholder="Stock"
+            />
+            <button
+              onClick={() => void handleBulkSetStock()}
+              className="btn-pink-outline px-3 py-2 text-sm"
+              disabled={isBulkProcessing || !canWriteProducts}
+            >
+              Bulk Set Stock
+            </button>
+            <button
+              onClick={() => void handleBulkDelete()}
+              className="btn-pink-outline px-3 py-2 text-sm"
+              disabled={isBulkProcessing || !canWriteProducts}
+            >
+              Bulk Delete
+            </button>
+          </div>
+        </div>
 
         {isLoadingProducts ? (
           <p className="text-[#6E6E73]">Loading products...</p>
@@ -482,6 +689,14 @@ export function AdminProductsPage() {
               <div key={product.id} className="py-3 space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
+                    <label className="inline-flex items-center gap-2 text-sm mb-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedProductIds.has(product.id)}
+                        onChange={() => toggleBulkSelection(product.id)}
+                      />
+                      Select
+                    </label>
                     <p className="font-medium">{product.name}</p>
                     <p className="text-sm text-[#6E6E73]">
                       {product.category} · {product.subcategory} · ${product.price} · {product.isActive === false ? 'inactive' : 'active'}
@@ -619,11 +834,11 @@ export function AdminProductsPage() {
               </div>
             ))}
 
-            {filteredProducts.length === 0 && <p className="text-[#6E6E73] py-3">No products match this filter.</p>}
+            {catalogTotal === 0 && <p className="text-[#6E6E73] py-3">No products match this filter.</p>}
           </div>
         )}
 
-        {!isLoadingProducts && filteredProducts.length > 0 ? (
+        {!isLoadingProducts && catalogTotal > 0 ? (
           <div className="flex items-center justify-between mt-4">
             <button
               onClick={() => setCatalogPage((current) => Math.max(1, current - 1))}
@@ -679,7 +894,7 @@ export function AdminProductsPage() {
                           type="checkbox"
                           checked={checked}
                           onChange={() => handleToggleFeaturedProduct(section.key, product)}
-                          disabled={savingSection === section.key}
+                          disabled={savingSection === section.key || !canWriteFeatured}
                         />
                         <span className="text-sm">{product.name}</span>
                       </label>

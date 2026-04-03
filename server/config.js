@@ -29,10 +29,31 @@ function parseOrigins(value, fallback) {
     .filter(Boolean);
 }
 
+function parseRoleBindings(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return {};
+  }
+
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .reduce((acc, entry) => {
+      const [rawEmail, rawRole] = entry.split(':');
+      const email = String(rawEmail ?? '').trim().toLowerCase();
+      const role = String(rawRole ?? '').trim().toLowerCase();
+      if (email && role) {
+        acc[email] = role;
+      }
+      return acc;
+    }, {});
+}
+
 export const config = {
   port: parsePort(process.env.PORT ?? process.env.WHATSAPP_BACKEND_PORT, 8787),
   apiKey: process.env.WHATSAPP_BACKEND_API_KEY ?? '',
   adminEmail: process.env.ADMIN_EMAIL ?? '',
+  adminRoleBindings: parseRoleBindings(process.env.ADMIN_ROLE_BINDINGS ?? ''),
   adminPassword: process.env.ADMIN_PASSWORD ?? '',
   adminSessionTtlMs: parsePort(process.env.ADMIN_SESSION_TTL_MS, 900000),
   adminRefreshTtlMs: parsePort(process.env.ADMIN_REFRESH_TTL_MS, 2592000000),

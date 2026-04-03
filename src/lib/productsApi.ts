@@ -6,6 +6,25 @@ const ADMIN_API_KEY = (import.meta.env.VITE_ADMIN_API_KEY as string | undefined)
 
 type TokenProvider = () => Promise<string | null>;
 
+export type AdminProductsQuery = {
+  category?: Product['category'];
+  status?: 'all' | 'active' | 'inactive';
+  search?: string;
+  includeInactive?: boolean;
+  page?: number;
+  pageSize?: number;
+};
+
+export type AdminProductsPage = {
+  products: Product[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 function endpoint(path: string) {
   return `${WHATSAPP_API_URL.replace(/\/$/, '')}${path}`;
 }
@@ -54,6 +73,56 @@ export async function listProducts(category?: Product['category'], includeInacti
   }
 
   return data.products as Product[];
+}
+
+export async function listAdminProductsPage(query: AdminProductsQuery = {}, getToken?: TokenProvider) {
+  const params = new URLSearchParams();
+  if (query.category) {
+    params.set('category', query.category);
+  }
+  if (query.status) {
+    params.set('status', query.status);
+  }
+  if (query.search?.trim()) {
+    params.set('search', query.search.trim());
+  }
+  if (query.includeInactive) {
+    params.set('includeInactive', 'true');
+  }
+  if (query.page) {
+    params.set('page', String(query.page));
+  }
+  if (query.pageSize) {
+    params.set('pageSize', String(query.pageSize));
+  }
+
+  const sessionToken = await resolveSessionToken(getToken);
+  const response = await fetchWithAdminAuth(`/api/admin/products${params.toString() ? `?${params.toString()}` : ''}`, {}, sessionToken);
+  const data = await readJsonResponse<{
+    ok?: boolean;
+    error?: unknown;
+    products?: Product[];
+    total?: number;
+    page?: number;
+    pageSize?: number;
+    totalPages?: number;
+    hasNextPage?: boolean;
+    hasPreviousPage?: boolean;
+  }>(response);
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(getFirstFormErrorMessage(data?.error) ?? getErrorMessage(data?.error) ?? 'Could not load admin products.');
+  }
+
+  return {
+    products: data.products ?? [],
+    total: Number(data.total ?? 0),
+    page: Number(data.page ?? 1),
+    pageSize: Number(data.pageSize ?? 20),
+    totalPages: Number(data.totalPages ?? 1),
+    hasNextPage: Boolean(data.hasNextPage),
+    hasPreviousPage: Boolean(data.hasPreviousPage),
+  } as AdminProductsPage;
 }
 
 export type CreateProductInput = {
@@ -193,7 +262,7 @@ export async function listFeaturedProducts() {
 }
 
 export async function updateAdminFeaturedProducts(section: FeaturedSectionKey, productIds: string[], getToken?: TokenProvider) {
-  const sessionToken = getToken ? (await getToken()) ?? undefined : undefined;
+  const sessionToken = await resolveSessionToken(getToken);
   const response = await fetchWithAdminAuth(`/api/admin/featured-products/${section}`, {
     method: 'PUT',
     headers: {

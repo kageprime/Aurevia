@@ -27,6 +27,7 @@ const AdminLayout = lazy(() => import('./components/admin/AdminLayout').then((mo
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then((module) => ({ default: module.AdminLoginPage })));
 const AdminOrdersPage = lazy(() => import('./pages/admin/AdminOrdersPage').then((module) => ({ default: module.AdminOrdersPage })));
 const AdminProductsPage = lazy(() => import('./pages/admin/AdminProductsPage').then((module) => ({ default: module.AdminProductsPage })));
+const AdminAuditLogsPage = lazy(() => import('./pages/admin/AdminAuditLogsPage').then((module) => ({ default: module.AdminAuditLogsPage })));
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage').then((module) => ({ default: module.AdminSettingsPage })));
 
 function RouteFallback() {
@@ -184,6 +185,7 @@ function App() {
               <Route index element={<Navigate to="/admin/orders" replace />} />
               <Route path="orders" element={<AdminOrdersPage />} />
               <Route path="products" element={<AdminProductsPage />} />
+              <Route path="audit-logs" element={<AdminAuditLogsPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/admin/orders" replace />} />
