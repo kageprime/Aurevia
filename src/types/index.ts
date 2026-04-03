@@ -6,6 +6,7 @@ export interface Product {
   subcategory: string;
   image: string;
   description: string;
+  stockQuantity?: number;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;

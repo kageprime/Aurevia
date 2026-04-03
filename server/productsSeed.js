@@ -1,4 +1,4 @@
-export const defaultProducts = [
+const baseProducts = [
   {
     id: 'velvet-matte-01',
     name: 'Velvet Matte Lipstick',
@@ -190,3 +190,8 @@ export const defaultProducts = [
     isActive: true,
   },
 ];
+
+export const defaultProducts = baseProducts.map((product) => ({
+  stockQuantity: 100,
+  ...product,
+}));

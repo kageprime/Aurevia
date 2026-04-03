@@ -17,12 +17,38 @@ export function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [activeOrder, setActiveOrder] = useState<OrderRecord | null>(null);
+  const [isUpdatingOrderStatus, setIsUpdatingOrderStatus] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | string>('all');
+  const [orderSearchQuery, setOrderSearchQuery] = useState('');
+  const [hasOrderLoadError, setHasOrderLoadError] = useState(false);
+
+  const filteredOrders = orders.filter((order) => {
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    const normalizedSearch = orderSearchQuery.trim().toLowerCase();
+
+    const matchesSearch = normalizedSearch.length === 0
+      || order.id.toLowerCase().includes(normalizedSearch)
+      || String(order.customerName ?? '').toLowerCase().includes(normalizedSearch)
+      || String(order.customerPhone ?? '').toLowerCase().includes(normalizedSearch)
+      || String(order.customerWhatsApp ?? '').toLowerCase().includes(normalizedSearch);
+
+    return matchesStatus && matchesSearch;
+  });
 
   const loadOrders = useCallback(async () => {
     setIsLoadingOrders(true);
+    setHasOrderLoadError(false);
     try {
       const data = await listAdminOrders(getToken);
       setOrders(data);
+      setActiveOrder((current) => {
+        if (!current) {
+          return null;
+        }
+
+        return data.find((order) => order.id === current.id) ?? null;
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not load orders.';
       if (isSessionExpiredError(error)) {
@@ -30,6 +56,7 @@ export function AdminOrdersPage() {
         navigate('/admin/login', { replace: true });
         return;
       }
+      setHasOrderLoadError(true);
       toast.error(message);
     } finally {
       setIsLoadingOrders(false);
@@ -41,6 +68,12 @@ export function AdminOrdersPage() {
   }, [loadOrders]);
 
   const handleStatusUpdate = async (orderId: string, status: string) => {
+    if (isUpdatingOrderStatus) {
+      return;
+    }
+
+    setIsUpdatingOrderStatus(true);
+    setUpdatingOrderId(orderId);
     try {
       const updated = await updateAdminOrderStatus(orderId, status, true, getToken);
       setOrders((current) => current.map((order) => (order.id === orderId ? updated : order)));
@@ -56,6 +89,9 @@ export function AdminOrdersPage() {
         return;
       }
       toast.error(message);
+    } finally {
+      setIsUpdatingOrderStatus(false);
+      setUpdatingOrderId(null);
     }
   };
 
@@ -72,11 +108,37 @@ export function AdminOrdersPage() {
             <button onClick={loadOrders} className="btn-pink-outline px-4 py-2 text-sm">Refresh</button>
           </div>
 
+          <div className="p-4 border-b border-[#0B0B0D]/10 grid md:grid-cols-2 gap-2">
+            <input
+              value={orderSearchQuery}
+              onChange={(event) => setOrderSearchQuery(event.target.value)}
+              className="border border-[#0B0B0D]/20 px-3 py-2"
+              placeholder="Search by order ID, customer name, or phone"
+            />
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="border border-[#0B0B0D]/20 px-3 py-2"
+            >
+              <option value="all">All statuses</option>
+              {quickStatuses.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {isLoadingOrders ? (
             <p className="p-4 text-[#6E6E73]">Loading orders...</p>
+          ) : hasOrderLoadError ? (
+            <div className="p-4 space-y-2">
+              <p className="text-[#6E6E73]">Could not load orders. Please try again.</p>
+              <button onClick={loadOrders} className="btn-pink-outline px-4 py-2 text-sm">Retry</button>
+            </div>
           ) : (
             <div className="divide-y divide-[#0B0B0D]/10">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <button
                   key={order.id}
                   onClick={() => setActiveOrder(order)}
@@ -85,7 +147,7 @@ export function AdminOrdersPage() {
                   <div className="flex justify-between gap-4">
                     <div>
                       <p className="font-semibold">{order.id}</p>
-                        <p className="text-xs text-[#6E6E73]">{formatTrackingStatus(order.status)}</p>
+                      <p className="text-xs text-[#6E6E73]">{formatTrackingStatus(order.status)}</p>
                     </div>
                     <p className="font-bold">${Number(order.subtotal).toFixed(2)}</p>
                   </div>
@@ -93,6 +155,9 @@ export function AdminOrdersPage() {
               ))}
 
               {orders.length === 0 && <p className="p-4 text-[#6E6E73]">No orders yet.</p>}
+              {orders.length > 0 && filteredOrders.length === 0 && (
+                <p className="p-4 text-[#6E6E73]">No orders match this filter.</p>
+              )}
             </div>
           )}
         </div>
@@ -129,8 +194,9 @@ export function AdminOrdersPage() {
                     key={status.value}
                     onClick={() => handleStatusUpdate(activeOrder.id, status.value)}
                     className="btn-pink-outline px-3 py-2 text-sm"
+                    disabled={isUpdatingOrderStatus && updatingOrderId === activeOrder.id}
                   >
-                    Mark {status.label}
+                    {isUpdatingOrderStatus && updatingOrderId === activeOrder.id ? 'Updating...' : `Mark ${status.label}`}
                   </button>
                 ))}
               </div>

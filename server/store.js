@@ -16,9 +16,26 @@ const defaultFeaturedBySection = {
   'shop-skincare': ['recovery-balm-01', 'daily-serum-01', 'night-renew-serum-02', 'barrier-cream-02'],
 };
 
+function normalizeStockQuantity(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  const rounded = Math.floor(parsed);
+  return rounded < 0 ? 0 : rounded;
+}
+
+function normalizeProduct(product) {
+  return {
+    ...product,
+    stockQuantity: normalizeStockQuantity(product?.stockQuantity),
+  };
+}
+
 let orders = new Map();
 let events = [];
-let products = new Map(defaultProducts.map((product) => [product.id, product]));
+let products = new Map(defaultProducts.map((product) => [product.id, normalizeProduct(product)]));
 let users = new Map();
 let featuredBySection = new Map(Object.entries(defaultFeaturedBySection));
 
@@ -27,7 +44,15 @@ function mergeDefaultCatalogData() {
 
   for (const product of defaultProducts) {
     if (!products.has(product.id)) {
-      products.set(product.id, product);
+      products.set(product.id, normalizeProduct(product));
+      changed = true;
+      continue;
+    }
+
+    const existing = products.get(product.id);
+    const normalized = normalizeProduct(existing);
+    if ((existing?.stockQuantity ?? null) !== normalized.stockQuantity) {
+      products.set(product.id, normalized);
       changed = true;
     }
   }
@@ -94,7 +119,7 @@ function loadPersistedState() {
     products = new Map(
       (Array.isArray(snapshot.products) ? snapshot.products : [])
         .filter((product) => product && typeof product.id === 'string')
-        .map((product) => [product.id, product])
+        .map((product) => [product.id, normalizeProduct(product)])
     );
     users = new Map(
       (Array.isArray(snapshot.users) ? snapshot.users : [])
@@ -210,13 +235,14 @@ export function listProducts({ category, includeInactive = false } = {}) {
 }
 
 export function getProduct(productId) {
-  return products.get(productId) ?? null;
+  const product = products.get(productId);
+  return product ? normalizeProduct(product) : null;
 }
 
 export function createProduct(product) {
-  products.set(product.id, product);
+  products.set(product.id, normalizeProduct(product));
   persistState();
-  return product;
+  return getProduct(product.id);
 }
 
 export function updateProduct(productId, patch) {
@@ -231,9 +257,9 @@ export function updateProduct(productId, patch) {
     updatedAt: new Date().toISOString(),
   };
 
-  products.set(productId, updated);
+  products.set(productId, normalizeProduct(updated));
   persistState();
-  return updated;
+  return getProduct(productId);
 }
 
 export function deleteProduct(productId) {

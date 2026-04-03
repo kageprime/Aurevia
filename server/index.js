@@ -70,7 +70,9 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-const storage = multer.diskStorage({
+const uploadFileSizeLimit = 10 * 1024 * 1024;
+
+const receiptStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     cb(null, uploadsDir);
   },
@@ -81,10 +83,23 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({
-  storage,
+const productImageStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const extension = path.extname(file.originalname) || '.jpg';
+    const safeExt = extension.toLowerCase().replace(/[^.a-z0-9]/g, '');
+    const productRef = String(req.params.productId ?? '').trim() || `product-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+    const safeRef = productRef.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+    cb(null, `${safeRef}-${Date.now()}${safeExt}`);
+  },
+});
+
+const receiptUpload = multer({
+  storage: receiptStorage,
   limits: {
-    fileSize: 10 * 1024 * 1024,
+    fileSize: uploadFileSizeLimit,
   },
   fileFilter: (_req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -93,6 +108,21 @@ const upload = multer({
       return;
     }
     cb(new Error('Unsupported receipt file type. Use JPG, PNG, WEBP, or PDF.'));
+  },
+});
+
+const productImageUpload = multer({
+  storage: productImageStorage,
+  limits: {
+    fileSize: uploadFileSizeLimit,
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Unsupported product image type. Use JPG, PNG, or WEBP.'));
   },
 });
 
@@ -127,6 +157,20 @@ function getRequestToken(req, accessCookieName) {
 
 function getRequestRefreshToken(req, refreshCookieName, parsedBodyRefreshToken = '') {
   return parsedBodyRefreshToken || getCookie(req, refreshCookieName) || '';
+}
+
+function parseBooleanInput(value) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+
+  return undefined;
 }
 
 function setSessionCookies(res, kind, accessToken, refreshToken) {
@@ -650,6 +694,7 @@ const productSchema = z.object({
   subcategory: z.string().trim().min(1),
   image: z.string().trim().min(1),
   description: z.string().trim().min(1),
+  stockQuantity: z.number().int().nonnegative().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -1065,8 +1110,25 @@ app.put('/api/admin/featured-products/:sectionKey', authMiddleware, async (req, 
   });
 });
 
-app.post('/api/admin/products', authMiddleware, async (req, res) => {
-  const parsed = productSchema.safeParse(req.body);
+app.post('/api/admin/products', authMiddleware, productImageUpload.single('image'), async (req, res) => {
+  const uploadedImageUrl = req.file ? `${req.protocol}://${req.get('host')}/api/uploads/${req.file.filename}` : '';
+  const rawPrice = typeof req.body?.price === 'number' ? req.body.price : Number(req.body?.price);
+  const rawStockInput = req.body?.stockQuantity;
+  const rawStockQuantity = rawStockInput === undefined || rawStockInput === null || rawStockInput === ''
+    ? undefined
+    : (typeof rawStockInput === 'number' ? rawStockInput : Number(rawStockInput));
+  const candidate = {
+    name: req.body?.name,
+    price: rawPrice,
+    category: req.body?.category,
+    subcategory: req.body?.subcategory,
+    image: uploadedImageUrl || String(req.body?.image ?? '').trim(),
+    description: req.body?.description,
+    stockQuantity: rawStockQuantity,
+    isActive: parseBooleanInput(req.body?.isActive),
+  };
+
+  const parsed = productSchema.safeParse(candidate);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, error: parsed.error.flatten() });
   }
@@ -1075,6 +1137,7 @@ app.post('/api/admin/products', authMiddleware, async (req, res) => {
   const product = await store.createProduct({
     id,
     ...parsed.data,
+    stockQuantity: parsed.data.stockQuantity ?? 0,
     isActive: parsed.data.isActive ?? true,
     createdAt: new Date().toISOString(),
   });
@@ -1086,6 +1149,29 @@ app.post('/api/admin/products', authMiddleware, async (req, res) => {
   });
 
   return res.status(201).json({ ok: true, product });
+});
+
+app.post('/api/admin/products/:productId/image', authMiddleware, productImageUpload.single('image'), async (req, res) => {
+  const { productId } = req.params;
+  const existing = await store.getProduct(productId);
+  if (!existing) {
+    return res.status(404).json({ ok: false, error: 'Product not found' });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ ok: false, error: 'Product image file is required.' });
+  }
+
+  const image = `${req.protocol}://${req.get('host')}/api/uploads/${req.file.filename}`;
+  const product = await store.updateProduct(productId, { image });
+
+  await store.pushEvent({
+    type: 'product.image_updated',
+    productId,
+    createdAt: new Date().toISOString(),
+  });
+
+  return res.json({ ok: true, product });
 });
 
 app.patch('/api/admin/products/:productId', authMiddleware, async (req, res) => {
@@ -1258,7 +1344,7 @@ app.post('/api/checkout/card', userAuthMiddleware, async (req, res) => {
   });
 });
 
-app.post('/api/orders/:orderId/receipt', upload.single('receipt'), async (req, res) => {
+app.post('/api/orders/:orderId/receipt', receiptUpload.single('receipt'), async (req, res) => {
   const { orderId } = req.params;
   const order = await store.getOrder(orderId);
 
@@ -1321,7 +1407,17 @@ app.get('/api/uploads/:filename', async (req, res) => {
   const receiptPath = path.join(uploadsDir, filename);
 
   if (!fs.existsSync(receiptPath)) {
-    return res.status(404).json({ ok: false, error: 'Receipt not found.' });
+    return res.status(404).json({ ok: false, error: 'File not found.' });
+  }
+
+  const products = await store.listProducts({ includeInactive: true });
+  const isProductImage = products.some((product) => {
+    const image = String(product.image ?? '');
+    return image.endsWith(`/api/uploads/${filename}`);
+  });
+
+  if (isProductImage) {
+    return res.sendFile(receiptPath);
   }
 
   const adminSession = getAdminSession(req);

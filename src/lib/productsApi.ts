@@ -1,5 +1,5 @@
 import type { FeaturedProductsBySection, FeaturedSectionKey, Product } from '@/types';
-import { fetchJson, readJsonResponse } from '@/lib/apiErrors';
+import { fetchJson, getErrorMessage, getFirstFormErrorMessage, readJsonResponse } from '@/lib/apiErrors';
 
 const WHATSAPP_API_URL = (import.meta.env.VITE_WHATSAPP_API_URL as string | undefined) ?? 'https://api.aureviacare.com.ng';
 const ADMIN_API_KEY = (import.meta.env.VITE_ADMIN_API_KEY as string | undefined) ?? '';
@@ -16,6 +16,10 @@ function adminHeaders() {
 
 function authHeaders(sessionToken?: string) {
   return sessionToken ? ({ Authorization: `Bearer ${sessionToken}` } as HeadersInit) : undefined;
+}
+
+async function resolveSessionToken(getToken?: TokenProvider) {
+  return getToken ? (await getToken()) ?? undefined : undefined;
 }
 
 async function fetchWithAdminAuth(path: string, init: RequestInit = {}, sessionToken?: string) {
@@ -59,11 +63,14 @@ export type CreateProductInput = {
   subcategory: string;
   image: string;
   description: string;
+  stockQuantity?: number;
   isActive?: boolean;
 };
 
+export type CreateProductWithImageInput = Omit<CreateProductInput, 'image'>;
+
 export async function createAdminProduct(input: CreateProductInput, getToken?: TokenProvider) {
-  const sessionToken = getToken ? (await getToken()) ?? undefined : undefined;
+  const sessionToken = await resolveSessionToken(getToken);
   const response = await fetchWithAdminAuth('/api/admin/products', {
     method: 'POST',
     headers: {
@@ -72,16 +79,41 @@ export async function createAdminProduct(input: CreateProductInput, getToken?: T
     body: JSON.stringify(input),
   }, sessionToken);
 
-  const data = await readJsonResponse<{ ok?: boolean; error?: string; product?: Product }>(response);
+  const data = await readJsonResponse<{ ok?: boolean; error?: unknown; product?: Product }>(response);
   if (!response.ok || !data?.ok) {
-    throw new Error(data?.error ?? 'Could not create product.');
+    throw new Error(getFirstFormErrorMessage(data?.error) ?? getErrorMessage(data?.error) ?? 'Could not create product.');
+  }
+
+  return data.product as Product;
+}
+
+export async function createAdminProductWithImage(input: CreateProductWithImageInput, file: File, getToken?: TokenProvider) {
+  const formData = new FormData();
+  formData.append('name', input.name);
+  formData.append('price', String(input.price));
+  formData.append('category', input.category);
+  formData.append('subcategory', input.subcategory);
+  formData.append('description', input.description);
+  formData.append('stockQuantity', String(input.stockQuantity ?? 0));
+  formData.append('isActive', String(input.isActive ?? true));
+  formData.append('image', file);
+
+  const sessionToken = await resolveSessionToken(getToken);
+  const response = await fetchWithAdminAuth('/api/admin/products', {
+    method: 'POST',
+    body: formData,
+  }, sessionToken);
+
+  const data = await readJsonResponse<{ ok?: boolean; error?: unknown; product?: Product }>(response);
+  if (!response.ok || !data?.ok) {
+    throw new Error(getFirstFormErrorMessage(data?.error) ?? getErrorMessage(data?.error) ?? 'Could not create product.');
   }
 
   return data.product as Product;
 }
 
 export async function updateAdminProduct(productId: string, patch: Partial<CreateProductInput>, getToken?: TokenProvider) {
-  const sessionToken = getToken ? (await getToken()) ?? undefined : undefined;
+  const sessionToken = await resolveSessionToken(getToken);
   const response = await fetchWithAdminAuth(`/api/admin/products/${productId}`, {
     method: 'PATCH',
     headers: {
@@ -90,16 +122,34 @@ export async function updateAdminProduct(productId: string, patch: Partial<Creat
     body: JSON.stringify(patch),
   }, sessionToken);
 
-  const data = await readJsonResponse<{ ok?: boolean; error?: string; product?: Product }>(response);
+  const data = await readJsonResponse<{ ok?: boolean; error?: unknown; product?: Product }>(response);
   if (!response.ok || !data?.ok) {
-    throw new Error(data?.error ?? 'Could not update product.');
+    throw new Error(getFirstFormErrorMessage(data?.error) ?? getErrorMessage(data?.error) ?? 'Could not update product.');
+  }
+
+  return data.product as Product;
+}
+
+export async function replaceAdminProductImage(productId: string, file: File, getToken?: TokenProvider) {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const sessionToken = await resolveSessionToken(getToken);
+  const response = await fetchWithAdminAuth(`/api/admin/products/${productId}/image`, {
+    method: 'POST',
+    body: formData,
+  }, sessionToken);
+
+  const data = await readJsonResponse<{ ok?: boolean; error?: unknown; product?: Product }>(response);
+  if (!response.ok || !data?.ok) {
+    throw new Error(getFirstFormErrorMessage(data?.error) ?? getErrorMessage(data?.error) ?? 'Could not replace product image.');
   }
 
   return data.product as Product;
 }
 
 export async function deleteAdminProduct(productId: string, getToken?: TokenProvider) {
-  const sessionToken = getToken ? (await getToken()) ?? undefined : undefined;
+  const sessionToken = await resolveSessionToken(getToken);
   const response = await fetchWithAdminAuth(`/api/admin/products/${productId}`, {
     method: 'DELETE',
   }, sessionToken);

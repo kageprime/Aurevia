@@ -25,6 +25,7 @@ function normalizeProduct(row) {
     subcategory: row.subcategory,
     image: row.image,
     description: row.description,
+    stockQuantity: Number(row.stock_quantity ?? 0),
     isActive: row.is_active,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
     updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
@@ -93,8 +94,8 @@ async function runSchemaMigrations(pool) {
 async function seedDefaults(pool) {
   for (const product of defaultProducts) {
     await pool.query(
-      `INSERT INTO products (id, name, price, category, subcategory, image, description, is_active, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      `INSERT INTO products (id, name, price, category, subcategory, image, description, stock_quantity, is_active, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        ON CONFLICT (id) DO NOTHING`,
       [
         product.id,
@@ -104,6 +105,7 @@ async function seedDefaults(pool) {
         product.subcategory,
         product.image,
         product.description,
+        Number(product.stockQuantity ?? 0),
         product.isActive !== false,
         product.createdAt ?? new Date().toISOString(),
       ]
@@ -244,8 +246,8 @@ function createPostgresAdapter(pool) {
 
     async createProduct(product) {
       await pool.query(
-        `INSERT INTO products (id, name, price, category, subcategory, image, description, is_active, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        `INSERT INTO products (id, name, price, category, subcategory, image, description, stock_quantity, is_active, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [
           product.id,
           product.name,
@@ -254,6 +256,7 @@ function createPostgresAdapter(pool) {
           product.subcategory,
           product.image,
           product.description,
+          Number(product.stockQuantity ?? 0),
           product.isActive !== false,
           product.createdAt ?? new Date().toISOString(),
           product.updatedAt ?? null,
@@ -280,8 +283,9 @@ function createPostgresAdapter(pool) {
              subcategory = $5,
              image = $6,
              description = $7,
-             is_active = $8,
-             updated_at = $9
+             stock_quantity = $8,
+             is_active = $9,
+             updated_at = $10
          WHERE id = $1`,
         [
           productId,
@@ -291,6 +295,7 @@ function createPostgresAdapter(pool) {
           merged.subcategory,
           merged.image,
           merged.description,
+          Number(merged.stockQuantity ?? 0),
           merged.isActive !== false,
           merged.updatedAt,
         ]
